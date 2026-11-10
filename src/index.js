@@ -1,8 +1,7 @@
 import yaml from "js-yaml";
-import { PREDEFINED_RULE_SETS } from "./config.js";
+import { PREDEFINED_RULE_SETS, UNIFIED_RULES } from "./config.js";
 import { GenerateWebPath, decodeBase64, encodeBase64 } from "./utils.js";
 import { ConfigBuilder } from "./SingboxConfigBuilder.js";
-import { generateHtml } from "./htmlBuilder.js";
 import { ClashConfigBuilder } from "./ClashConfigBuilder.js";
 
 export default {
@@ -14,33 +13,9 @@ export default {
 async function handleRequest(request, env) {
   try {
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/") {
-      return new Response(generateHtml("", "", "", url.origin), {
-        headers: { "Content-Type": "text/html" }
-      });
-    } else if (request.method === "POST" && url.pathname === "/") {
-      const formData = await request.formData();
-      const inputString = formData.get("input");
-      const selectedRules = formData.getAll("selectedRules");
-      const customRuleDomains = formData.getAll("customRuleSite[]");
-      const customRuleIPs = formData.getAll("customRuleIP[]");
-      const customRuleNames = formData.getAll("customRuleName[]");
-      const customRules = customRuleDomains.map((domains, index) => ({
-        sites: domains.split(",").map((site) => site.trim()),
-        ips: customRuleIPs[index].split(",").map((ip) => ip.trim()),
-        outbound: customRuleNames[index]
-      }));
-      const pin = formData.get("pin");
-      if (!inputString) {
-        return new Response("Missing input parameter", { status: 400 });
-      }
-      const rulesToUse = selectedRules.length > 0 ? selectedRules : ["广告拦截", "谷歌服务", "国外媒体", "电报消息"];
-      const xrayUrl = `${url.origin}/xray?config=${encodeURIComponent(inputString)}`;
-      const singboxUrl = `${url.origin}/singbox?config=${encodeURIComponent(inputString)}&selectedRules=${encodeURIComponent(JSON.stringify(rulesToUse))}&customRules=${encodeURIComponent(JSON.stringify(customRules))}pin=${pin}`;
-      const clashUrl = `${url.origin}/clash?config=${encodeURIComponent(inputString)}&selectedRules=${encodeURIComponent(JSON.stringify(rulesToUse))}&customRules=${encodeURIComponent(JSON.stringify(customRules))}pin=${pin}`;
-      return new Response(generateHtml(xrayUrl, singboxUrl, clashUrl), {
-        headers: { "Content-Type": "text/html" }
-      });
+    if (url.pathname === "/api/rules") {
+      const rules = UNIFIED_RULES.map(({ name, outbound, default_direct }) => ({ name, outbound, default_direct: !!default_direct }));
+      return Response.json({ rules, presets: PREDEFINED_RULE_SETS });
     } else if (url.pathname.startsWith("/singbox") || url.pathname.startsWith("/clash")) {
       const inputString = url.searchParams.get("config");
       let selectedRules = url.searchParams.get("selectedRules");
@@ -165,8 +140,6 @@ async function handleRequest(request, env) {
       return new Response(encodeBase64(finalString), {
         headers: { "content-type": "application/json; charset=utf-8" }
       });
-    } else if (url.pathname === "/favicon.ico") {
-      return Response.redirect("https://cravatar.cn/avatar/9240d78bbea4cf05fb04f2b86f22b18d?s=160&d=retro&r=g", 301);
     } else if (url.pathname === "/config") {
       const { type, content } = await request.json();
       const configId = `${type}_${GenerateWebPath(8)}`;

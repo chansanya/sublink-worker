@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sublink Worker · 订阅转换工作台</title>
+  <meta name="description" content="将节点链接与订阅转换为 Clash、sing-box、Xray 配置，支持规则分类、自定义规则与实时预览。">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";</script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 22c0-6 14-6 14-12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="9" cy="22" r="3" fill="currentColor"/><circle cx="23" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>
+      <span class="brand-name">Sublink</span>
+      <span class="brand-sub">Worker</span>
+    </div>
+    <div class="status" id="status" data-state="idle" role="status" aria-live="polite">
+      <span class="status-dot"></span><span class="status-text">就绪</span>
+    </div>
+    <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题"><i data-icon="moon"></i></button>
+  </header>
+
+  <main class="workspace">
+    <section class="pane pane-config" aria-label="配置">
+      <section class="block">
+        <header class="block-head">
+          <span class="block-index">01</span>
+          <h2>节点</h2>
+          <span class="block-meta" id="nodeMeta"></span>
+        </header>
+        <textarea id="input" class="code-input" rows="5" spellcheck="false" autocomplete="off"
+          placeholder="每行一条节点链接：vless:// ss:// vmess:// trojan:// hysteria2:// tuic://&#10;也可以填机场订阅地址：https://..."></textarea>
+        <div class="chips" id="protocolChips"></div>
+      </section>
+
+      <section class="block">
+        <header class="block-head">
+          <span class="block-index">02</span>
+          <h2>规则分类</h2>
+          <span class="block-meta" id="ruleMeta"></span>
+        </header>
+        <div class="segmented" id="presetSwitch" role="radiogroup" aria-label="规则预设">
+          <button type="button" role="radio" data-preset="minimal">精简</button>
+          <button type="button" role="radio" data-preset="balanced">均衡</button>
+          <button type="button" role="radio" data-preset="comprehensive">全面</button>
+          <button type="button" role="radio" data-preset="custom">自定义</button>
+        </div>
+        <div class="rule-grid" id="ruleGrid"></div>
+        <p class="block-foot">按匹配优先级排列，靠前的分类先匹配。标记「直连」的分组默认直连。</p>
+      </section>
+
+      <section class="block">
+        <header class="block-head">
+          <span class="block-index">03</span>
+          <h2>自定义规则</h2>
+          <label class="switch" title="打开后自定义规则排在所有分类规则之前">
+            <input type="checkbox" id="pinToggle">
+            <span class="switch-track"><span class="switch-thumb"></span></span>
+            <span class="switch-label"><i data-icon="pin"></i>置顶</span>
+          </label>
+        </header>
+        <div class="rule-list" id="customList"></div>
+        <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加规则</button>
+        <p class="block-foot">多个值可用逗号、空格或回车分隔。出站填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝，不新建策略组。</p>
+      </section>
+
+      <details class="block block-collapsible" id="baseBlock">
+        <summary class="block-head">
+          <span class="block-index">04</span>
+          <h2>底板配置</h2>
+          <span class="badge">实验性</span>
+          <span class="block-meta" id="baseMeta"></span>
+          <i data-icon="chevron-down" class="summary-chevron"></i>
+        </summary>
+        <div class="segmented segmented-sm" id="baseTypeSwitch" role="radiogroup" aria-label="底板类型">
+          <button type="button" role="radio" data-type="singbox">sing-box · JSON</button>
+          <button type="button" role="radio" data-type="clash">Clash · YAML</button>
+        </div>
+        <textarea id="baseConfig" class="code-input" rows="8" spellcheck="false" placeholder="粘贴完整的底板配置。保存后作为生成配置的起点（rules 会被覆盖）。"></textarea>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="saveBase"><i data-icon="save"></i>保存并启用</button>
+          <button type="button" class="btn btn-ghost" id="clearBase"><i data-icon="eraser"></i>清除</button>
+        </div>
+        <p class="block-foot">底板存储 30 天后过期，过期后订阅会回退到默认底板。</p>
+      </details>
+    </section>
+
+    <section class="pane pane-output" aria-label="输出">
+      <div class="preview">
+        <div class="preview-bar">
+          <div class="tabs" id="tabs" role="tablist">
+            <button type="button" role="tab" data-tab="clash">Clash</button>
+            <button type="button" role="tab" data-tab="singbox">sing-box</button>
+            <button type="button" role="tab" data-tab="xray">Xray</button>
+          </div>
+          <span class="preview-meta" id="previewMeta"></span>
+          <button type="button" class="icon-btn" id="copyPreview" aria-label="复制文件内容" title="复制文件内容"><i data-icon="copy"></i></button>
+        </div>
+        <nav class="section-chips" id="sectionChips" aria-label="跳转到段落"></nav>
+        <div class="code-view" id="codeView"><div class="code" id="code"></div></div>
+        <div class="preview-note" id="previewNote" hidden><i data-icon="circle-help"></i><span></span></div>
+      </div>
+
+      <div class="links" id="links">
+        <header class="links-head">
+          <h2>订阅链接</h2>
+          <span class="block-meta" id="linksMeta"></span>
+        </header>
+        <div id="linkRows"></div>
+        <div class="short">
+          <label class="short-label" for="shortCode">短链</label>
+          <div class="short-input">
+            <span class="short-prefix" id="shortPrefix"></span>
+            <input id="shortCode" type="text" placeholder="自定义路径（可选）" autocomplete="off" spellcheck="false">
+          </div>
+          <button type="button" class="btn btn-primary" id="shortenBtn"><i data-icon="scissors"></i>生成短链</button>
+        </div>
+        <div class="saved-paths" id="savedPaths"></div>
+        <p class="short-notice" id="shortNotice" hidden></p>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="qr-dialog" id="qrDialog">
+    <div class="qr-body">
+      <div class="qr-code" id="qrCode"></div>
+      <p class="qr-caption" id="qrCaption"></p>
+      <button type="button" class="icon-btn qr-close" id="qrClose" aria-label="关闭"><i data-icon="x"></i></button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" async></script>
+  <script src="/icons.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "icons": "node scripts/build-icons.mjs"
   },
   "dependencies": {
     "js-yaml": "4.1.0"
   },
   "devDependencies": {
+    "lucide": "1.70.0",
     "wrangler": "^4.158.0"
   }
 }

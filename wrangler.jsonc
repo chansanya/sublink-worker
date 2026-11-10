@@ -3,6 +3,7 @@
   "name": "sublink-worker",
   "main": "src/index.js",
   "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./public" },
   "kv_namespaces": [
     // 省略 id 时 wrangler deploy 自动创建；迁移已有数据则填入原 namespace id
     { "binding": "SUBLINK_KV" }
