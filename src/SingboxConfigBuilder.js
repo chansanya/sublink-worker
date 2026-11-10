@@ -1,4 +1,4 @@
-import { SING_BOX_CONFIG, PREDEFINED_RULE_SETS, getOutbounds, generateRules, generateRuleSets } from "./config.js";
+import { SING_BOX_CONFIG, PREDEFINED_RULE_SETS, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules, generateRuleSets } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -38,18 +38,21 @@ export class ConfigBuilder extends BaseConfigBuilder {
         this.config.outbounds.push({
           type: "selector",
           tag: outbound,
-          outbounds: ["🚀 节点选择", ...proxyList]
+          outbounds: DIRECT_DEFAULT_OUTBOUNDS.includes(outbound)
+            ? ["DIRECT", "🚀 节点选择", ...proxyList.filter((p) => p !== "DIRECT")]
+            : ["🚀 节点选择", ...proxyList]
         });
       } else {
         this.config.outbounds.unshift({
           type: "selector",
           tag: outbound,
-          outbounds: proxyList
+          outbounds: ["⚡ 自动选择", ...proxyList.filter((p) => p !== "⚡ 自动选择")]
         });
       }
     });
     if (Array.isArray(this.customRules)) {
       this.customRules.forEach((rule) => {
+        if (BUILTIN_OUTBOUNDS.includes(rule.name)) return;
         this.config.outbounds.push({
           type: "selector",
           tag: rule.name,

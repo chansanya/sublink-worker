@@ -35,13 +35,15 @@ export const UNIFIED_RULES = [
     name: "Private",
     outbound: "🏠 私有网络",
     site_rules: [],
-    ip_rules: ["private"]
+    ip_rules: ["private"],
+    default_direct: true
   },
   {
     name: "Location:CN",
     outbound: "🔒 国内服务",
     site_rules: ["geolocation-cn"],
-    ip_rules: ["cn"]
+    ip_rules: ["cn"],
+    default_direct: true
   },
   {
     name: "Telegram",
@@ -110,6 +112,10 @@ export const UNIFIED_RULES = [
     ip_rules: []
   }
 ];
+export const BUILTIN_OUTBOUNDS = ["DIRECT", "REJECT"];
+
+export const DIRECT_DEFAULT_OUTBOUNDS = UNIFIED_RULES.filter((rule) => rule.default_direct).map((rule) => rule.outbound);
+
 export const PREDEFINED_RULE_SETS = {
   minimal: ["Location:CN", "Private", "Non-China"],
   balanced: ["Location:CN", "Private", "Non-China", "Google", "Youtube", "AI Services", "Telegram"],
@@ -135,6 +141,18 @@ export function getOutbounds(selectedRuleNames) {
   return UNIFIED_RULES.filter((rule) => selectedRuleNames.includes(rule.name)).map((rule) => rule.outbound);
 }
 
+const splitList = (value) => (value ? value.split(",").map((item) => item.trim()).filter(Boolean) : []);
+
+const toRouteRule = (rule) => ({
+  site_rules: splitList(rule.site),
+  ip_rules: splitList(rule.ip),
+  domain_suffix: splitList(rule.domain_suffix),
+  domain_keyword: splitList(rule.domain_keyword),
+  ip_cidr: splitList(rule.ip_cidr),
+  protocol: splitList(rule.protocol),
+  outbound: rule.name
+});
+
 export function generateRules(selectedRules = [], customRules = [], pin) {
   if (typeof selectedRules === "string" && PREDEFINED_RULE_SETS[selectedRules]) {
     selectedRules = PREDEFINED_RULE_SETS[selectedRules];
@@ -155,30 +173,10 @@ export function generateRules(selectedRules = [], customRules = [], pin) {
     }
   });
   if (customRules && customRules.length > 0 && pin !== "true") {
-    customRules.forEach((rule) => {
-      rules.push({
-        site_rules: rule.site.split(","),
-        ip_rules: rule.ip.split(","),
-        domain_suffix: rule.domain_suffix ? rule.domain_suffix.split(",") : [],
-        domain_keyword: rule.domain_keyword ? rule.domain_keyword.split(",") : [],
-        ip_cidr: rule.ip_cidr ? rule.ip_cidr.split(",") : [],
-        protocol: rule.protocol ? rule.protocol.split(",") : [],
-        outbound: rule.name
-      });
-    });
+    customRules.forEach((rule) => rules.push(toRouteRule(rule)));
   } else if (customRules && customRules.length > 0 && pin === "true") {
     customRules.reverse();
-    customRules.forEach((rule) => {
-      rules.unshift({
-        site_rules: rule.site.split(","),
-        ip_rules: rule.ip.split(","),
-        domain_suffix: rule.domain_suffix ? rule.domain_suffix.split(",") : [],
-        domain_keyword: rule.domain_keyword ? rule.domain_keyword.split(",") : [],
-        ip_cidr: rule.ip_cidr ? rule.ip_cidr.split(",") : [],
-        protocol: rule.protocol ? rule.protocol.split(",") : [],
-        outbound: rule.name
-      });
-    });
+    customRules.forEach((rule) => rules.unshift(toRouteRule(rule)));
   }
   return rules;
 }
@@ -225,28 +223,24 @@ export function generateRuleSets(selectedRules = [], customRules = []) {
   }
   if (customRules) {
     customRules.forEach((rule) => {
-      if (rule.site != "") {
-        rule.site.split(",").forEach((site) => {
-          site_rule_sets.push({
-            tag: site.trim(),
-            type: "remote",
-            format: "binary",
-            url: `${SITE_RULE_SET_BASE_URL}geosite-${site.trim()}.srs`,
-            download_detour: "⚡ 自动选择"
-          });
+      splitList(rule.site).forEach((site) => {
+        site_rule_sets.push({
+          tag: site,
+          type: "remote",
+          format: "binary",
+          url: `${SITE_RULE_SET_BASE_URL}geosite-${site}.srs`,
+          download_detour: "⚡ 自动选择"
         });
-      }
-      if (rule.ip != "") {
-        rule.ip.split(",").forEach((ip) => {
-          ip_rule_sets.push({
-            tag: `${ip.trim()}-ip`,
-            type: "remote",
-            format: "binary",
-            url: `${IP_RULE_SET_BASE_URL}geoip-${ip.trim()}.srs`,
-            download_detour: "⚡ 自动选择"
-          });
+      });
+      splitList(rule.ip).forEach((ip) => {
+        ip_rule_sets.push({
+          tag: `${ip}-ip`,
+          type: "remote",
+          format: "binary",
+          url: `${IP_RULE_SET_BASE_URL}geoip-${ip}.srs`,
+          download_detour: "⚡ 自动选择"
         });
-      }
+      });
     });
   }
   ruleSets.push(...site_rule_sets, ...ip_rule_sets);

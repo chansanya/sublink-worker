@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { CLASH_CONFIG, PREDEFINED_RULE_SETS, getOutbounds, generateRules } from "./config.js";
+import { CLASH_CONFIG, PREDEFINED_RULE_SETS, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -45,18 +45,21 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.config["proxy-groups"].push({
           type: "select",
           name: outbound,
-          proxies: ["🚀 节点选择", ...proxyList]
+          proxies: DIRECT_DEFAULT_OUTBOUNDS.includes(outbound)
+            ? ["DIRECT", "🚀 节点选择", ...proxyList.filter((p) => p !== "DIRECT")]
+            : ["🚀 节点选择", ...proxyList]
         });
       } else {
         this.config["proxy-groups"].unshift({
           type: "select",
           name: outbound,
-          proxies: proxyList
+          proxies: ["⚡ 自动选择", ...proxyList.filter((p) => p !== "⚡ 自动选择")]
         });
       }
     });
     if (Array.isArray(this.customRules)) {
       this.customRules.forEach((rule) => {
+        if (BUILTIN_OUTBOUNDS.includes(rule.name)) return;
         this.config["proxy-groups"].push({
           type: "select",
           name: rule.name,
