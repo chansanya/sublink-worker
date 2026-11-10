@@ -95,7 +95,7 @@
   function loadState() {
     const base = {
       input: "", preset: "minimal", selected: [], order: [], pin: false, customRules: [],
-      shortCode: "", savedPaths: [], short: null, tab: "clash"
+      shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: true
     };
     let saved = null;
     try {
@@ -133,7 +133,9 @@
     if (links) renderLinks();
     if (refresh) {
       preview.reason = "edit";
-      schedulePreview();
+      // 抽屉收起时不发预览请求，打开时再按最新状态生成
+      if (drawerOpen()) schedulePreview();
+      else preview.stale = true;
     }
   }
 
@@ -229,6 +231,9 @@
       .join("");
     const status = analysis.state === "loading" ? " · 分析中" : analysis.state === "error" ? " · 分析失败" : "";
     $("#ruleMeta").textContent = meta.rules.length ? `${selected.size} / ${meta.rules.length}${status}` : "";
+    const recommend = $("#recommendOrder");
+    recommend.disabled = analysis.state !== "ready";
+    recommend.title = analysis.state === "ready" ? "广告最前，纯 IP 分类其次，其余按包含关系与域名数从小到大，大合集排最后" : "等待在线分析完成";
   }
 
   // ---------- online geosite analysis ----------
@@ -320,8 +325,14 @@
     renderRules();
   }
 
-  // A 排在 B 之后，且 B 是"包含方"（A 被 B 覆盖的比例高于反向，排除两者只是共享一块的情况），
-  // 覆盖达到比例或数量阈值时，A 的这部分流量会被 B 截走
+  // B 是否"包含" A：A 被 B 覆盖的比例高于反向（排除两者只是共享一块的情况），且达到比例或数量阈值
+  function isContained(a, b) {
+    const pct = analysis.cover[a]?.[b] || 0;
+    if (pct <= (analysis.cover[b]?.[a] || 0)) return false;
+    return pct >= CONFLICT_RATIO || (analysis.hits[a]?.[b] || 0) >= CONFLICT_HITS;
+  }
+
+  // A 排在包含它的 B 之后时，A 的这部分流量会被 B 截走
   function ruleConflicts() {
     const out = new Map();
     if (analysis.state !== "ready" && analysis.state !== "error") return out;
@@ -329,10 +340,9 @@
     order.forEach((a, j) => {
       for (let i = 0; i < j; i++) {
         const b = order[i];
-        const pct = analysis.cover[a]?.[b] || 0;
-        const hits = analysis.hits[a]?.[b] || 0;
-        if (pct <= (analysis.cover[b]?.[a] || 0)) continue;
-        if (pct < CONFLICT_RATIO && hits < CONFLICT_HITS) continue;
+        if (!isContained(a, b)) continue;
+        const pct = analysis.cover[a][b];
+        const hits = analysis.hits[a][b];
         const prev = out.get(a);
         const worse = !prev || pct > prev.pct;
         out.set(a, { first: prev?.first ?? b, by: worse ? b : prev.by, pct: worse ? pct : prev.pct, hits: worse ? hits : prev.hits });
@@ -341,7 +351,54 @@
     return out;
   }
 
+  // 推荐顺序：广告最前；纯 IP 分类（无域名数据）紧随其后，不与域名分类冲突且内网直连优先；
+  // 其余按包含关系拓扑排序（被包含的在前），同层按域名数从小到大，大合集自然落到最后
+  function recommendedOrder() {
+    const names = ruleNames();
+    const tier = (n) => (n === "Ad Block" ? 0 : analysis.counts[n] === undefined ? 1 : 2);
+    const byPriority = (a, b) => tier(a) - tier(b) || (analysis.counts[a] || 0) - (analysis.counts[b] || 0) || names.indexOf(a) - names.indexOf(b);
+    const pending = [...names];
+    const out = [];
+    while (pending.length) {
+      const ready = pending.filter((n) => !pending.some((m) => m !== n && isContained(m, n)));
+      const next = (ready.length ? ready : pending).sort(byPriority)[0];
+      out.push(next);
+      pending.splice(pending.indexOf(next), 1);
+    }
+    return out;
+  }
+
+  // 重排后让卡片从旧位置滑到新位置
+  function flipTiles(mutate) {
+    const before = new Map($$(".rule-tile").map((t) => [t.dataset.rule, t.getBoundingClientRect()]));
+    mutate();
+    $$(".rule-tile").forEach((t) => {
+      const from = before.get(t.dataset.rule);
+      if (!from) return;
+      const to = t.getBoundingClientRect();
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      if (!dx && !dy) return;
+      t.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 320, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+    });
+  }
+
   function bindRules() {
+    $("#recommendOrder").addEventListener("click", () => {
+      const next = recommendedOrder();
+      enterCustom();
+      if (next.join() === state.order.join()) {
+        renderRules();
+        return toast("已经是推荐顺序");
+      }
+      flipTiles(() => {
+        state.order = next;
+        renderRules();
+      });
+      refreshRuleFeet();
+      changed();
+      toast("已按推荐顺序排列");
+    });
     $("#presetSwitch").addEventListener("click", (e) => {
       const preset = e.target.closest("button")?.dataset.preset;
       if (!preset || preset === state.preset) return;
@@ -794,6 +851,10 @@
   }
 
   async function runPreview() {
+    if (!drawerOpen()) {
+      preview.stale = true;
+      return;
+    }
     const tab = state.tab;
     const url = buildUrls(state.input.trim() ? state.input : SAMPLE_NODE, "")[tab];
     preview.ctrl?.abort();
@@ -960,6 +1021,44 @@
     });
   }
 
+  // ---------- preview drawer ----------
+  // 抽屉状态挂在 <html data-drawer>，首屏由 index.html 内联脚本提前设置；窄屏为浮层且总是从收起开始
+  const narrowScreen = matchMedia("(max-width: 1080px)");
+  const drawerOpen = () => document.documentElement.dataset.drawer === "open";
+
+  function setDrawer(open) {
+    document.documentElement.dataset.drawer = open ? "open" : "closed";
+    const toggle = $("#drawerToggle");
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.innerHTML = icon(open ? "panel-right-close" : "panel-right-open");
+    $("#drawerHandle").tabIndex = open ? -1 : 0;
+    if (!narrowScreen.matches) {
+      state.drawerOpen = open;
+      persist();
+    }
+    if (open && preview.stale) {
+      preview.stale = false;
+      runPreview();
+    } else if (!open) {
+      setStatus("idle", "预览已收起");
+    }
+  }
+
+  function bindDrawer() {
+    const open = drawerOpen();
+    $("#drawerToggle").setAttribute("aria-expanded", String(open));
+    $("#drawerToggle").innerHTML = icon(open ? "panel-right-close" : "panel-right-open");
+    $("#drawerHandle").tabIndex = open ? -1 : 0;
+    if (!open) setStatus("idle", "预览已收起");
+    $("#drawerToggle").addEventListener("click", () => setDrawer(!drawerOpen()));
+    $("#drawerClose").addEventListener("click", () => setDrawer(false));
+    $("#drawerHandle").addEventListener("click", () => setDrawer(true));
+    $("#drawerBackdrop").addEventListener("click", () => setDrawer(false));
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && narrowScreen.matches && drawerOpen() && !$("#qrDialog").open) setDrawer(false);
+    });
+  }
+
   // ---------- theme ----------
   function bindTheme() {
     const btn = $("#themeToggle");
@@ -986,6 +1085,7 @@
       changed();
     });
     bindTheme();
+    bindDrawer();
     bindRules();
     bindCustomRules();
     bindPreview();

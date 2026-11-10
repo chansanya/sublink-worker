@@ -7,7 +7,16 @@
   <meta name="description" content="将节点链接与订阅转换为 Clash、sing-box、Xray 配置，支持规则分类、自定义规则与实时预览。">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
-  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";</script>
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
+    // 渲染前确定抽屉状态，避免首屏闪动；窄屏总是收起
+    try {
+      const saved = JSON.parse(localStorage.getItem("sublink:v2") || "{}");
+      document.documentElement.dataset.drawer = matchMedia("(max-width: 1080px)").matches || saved.drawerOpen === false ? "closed" : "open";
+    } catch {
+      document.documentElement.dataset.drawer = "open";
+    }
+  </script>
 </head>
 <body>
   <header class="topbar">
@@ -19,6 +28,7 @@
     <div class="status" id="status" data-state="idle" role="status" aria-live="polite">
       <span class="status-dot"></span><span class="status-text">就绪</span>
     </div>
+    <button class="icon-btn" id="drawerToggle" type="button" aria-controls="drawer" aria-label="切换预览" title="打开 / 收起预览"><i data-icon="panel-right-open"></i></button>
     <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题"><i data-icon="moon"></i></button>
   </header>
 
@@ -40,6 +50,7 @@
           <span class="block-index">02</span>
           <h2>规则分类</h2>
           <span class="block-meta" id="ruleMeta"></span>
+          <button type="button" class="btn btn-sm btn-outline" id="recommendOrder" disabled><i data-icon="sparkles"></i>推荐排序</button>
         </header>
         <div class="segmented" id="presetSwitch" role="radiogroup" aria-label="规则预设">
           <button type="button" role="radio" data-preset="minimal">精简</button>
@@ -66,26 +77,10 @@
         <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加规则</button>
         <p class="block-foot">多个值可用逗号、空格或回车分隔。出站填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝，不新建策略组。</p>
       </section>
-    </section>
 
-    <section class="pane pane-output" aria-label="输出">
-      <div class="preview">
-        <div class="preview-bar">
-          <div class="tabs" id="tabs" role="tablist">
-            <button type="button" role="tab" data-tab="clash">Clash</button>
-            <button type="button" role="tab" data-tab="singbox">sing-box</button>
-            <button type="button" role="tab" data-tab="xray">Xray</button>
-          </div>
-          <span class="preview-meta" id="previewMeta"></span>
-          <button type="button" class="icon-btn" id="copyPreview" aria-label="复制文件内容" title="复制文件内容"><i data-icon="copy"></i></button>
-        </div>
-        <nav class="section-chips" id="sectionChips" aria-label="跳转到段落"></nav>
-        <div class="code-view" id="codeView"><div class="code" id="code"></div></div>
-        <div class="preview-note" id="previewNote" hidden><i data-icon="circle-help"></i><span></span></div>
-      </div>
-
-      <div class="links" id="links">
-        <header class="links-head">
+      <section class="block links" id="links">
+        <header class="block-head">
+          <span class="block-index">04</span>
           <h2>订阅链接</h2>
           <span class="block-meta" id="linksMeta"></span>
         </header>
@@ -100,9 +95,30 @@
         </div>
         <div class="saved-paths" id="savedPaths"></div>
         <p class="short-notice" id="shortNotice" hidden></p>
-      </div>
+      </section>
     </section>
+
+    <aside class="drawer" id="drawer" aria-label="配置文件预览">
+      <div class="preview">
+        <div class="preview-bar">
+          <div class="tabs" id="tabs" role="tablist">
+            <button type="button" role="tab" data-tab="clash">Clash</button>
+            <button type="button" role="tab" data-tab="singbox">sing-box</button>
+            <button type="button" role="tab" data-tab="xray">Xray</button>
+          </div>
+          <span class="preview-meta" id="previewMeta"></span>
+          <button type="button" class="icon-btn" id="copyPreview" aria-label="复制文件内容" title="复制文件内容"><i data-icon="copy"></i></button>
+          <button type="button" class="icon-btn" id="drawerClose" aria-label="收起预览" title="收起预览"><i data-icon="panel-right-close"></i></button>
+        </div>
+        <nav class="section-chips" id="sectionChips" aria-label="跳转到段落"></nav>
+        <div class="code-view" id="codeView"><div class="code" id="code"></div></div>
+        <div class="preview-note" id="previewNote" hidden><i data-icon="circle-help"></i><span></span></div>
+      </div>
+    </aside>
   </main>
+
+  <button type="button" class="drawer-handle" id="drawerHandle" aria-label="打开预览"><i data-icon="panel-right-open"></i><span>预览</span></button>
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
 
   <dialog class="qr-dialog" id="qrDialog">
     <div class="qr-body">

@@ -42,4 +42,6 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 - 图标是 `scripts/build-icons.mjs` 从 lucide 导出的子集（`window.ICONS`），HTML 中写 `<i data-icon="name">`，由 `hydrateIcons` 替换为 SVG；界面不使用 emoji，规则组名里的 emoji 用 `stripEmoji` 去掉后展示。
 - qrcode-generator 从 jsDelivr 异步加载，二维码功能需判断全局 `qrcode` 是否就绪。
 - 在线分析（`analyzeRules`）：启动后经 `/api/geosite` 拉取全部分类名单，在浏览器计算域名数与两两覆盖率。`ruleConflicts` 判定冲突需同时满足：A 排在 B 后、A 被 B 覆盖的比例高于反向（排除两者只是共享一块，如云服务/微软共享 Azure）、比例 ≥ `CONFLICT_RATIO` 或被截走数 ≥ `CONFLICT_HITS`（照顾广告这类横跨国内外的分类）。自定义规则的 Geo-Site 名称用同一接口校验是否存在（`validateSites`）。
+- 推荐排序（`recommendedOrder`）：广告最前，纯 IP 分类（无域名数据）其次，其余按 `isContained` 拓扑排序、同层按域名数升序，大合集自然落到最后；与冲突检测共用 `isContained`，保证结果零冲突。需在线分析完成后才可用。
+- 预览在右侧抽屉（`<html data-drawer>`，首屏由 `index.html` 内联脚本提前设置以免闪动）：大屏为 grid 列宽过渡，窄屏（≤1080px）为浮层并总是从收起开始。抽屉收起时 `runPreview` 只标记 `preview.stale`，不发请求，打开时再生成。订阅链接在配置区第 04 块，不随抽屉收起。
 - 显式点「自定义」恢复上次的勾选与顺序；在预设下直接点卡片、拖动或点修正按钮，则经 `enterCustom` 从该预设开始自定义。
