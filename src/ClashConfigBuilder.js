@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { CLASH_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, getOutbounds, generateRules } from "./config.js";
+import { CLASH_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, withoutReject, getOutbounds, generateRules } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -41,7 +41,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.config["proxy-groups"].unshift({
           type: "select",
           name: outbound,
-          proxies: ["⚡ 自动选择", ...proxyList.filter((p) => p !== "⚡ 自动选择")]
+          proxies: ["⚡ 自动选择", ...withoutReject(proxyList).filter((p) => p !== "⚡ 自动选择")]
         });
       }
     });
@@ -58,7 +58,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     this.config["proxy-groups"].push({
       type: "select",
       name: "🐟 漏网之鱼",
-      proxies: ["🚀 节点选择", ...proxyList]
+      proxies: ["🚀 节点选择", ...withoutReject(proxyList)]
     });
   }
   formatConfig() {

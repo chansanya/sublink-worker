@@ -1,4 +1,4 @@
-import { SING_BOX_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, getOutbounds, generateRules, generateRuleSets } from "./config.js";
+import { SING_BOX_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, withoutReject, getOutbounds, generateRules, generateRuleSets } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -34,7 +34,7 @@ export class ConfigBuilder extends BaseConfigBuilder {
         this.config.outbounds.unshift({
           type: "selector",
           tag: outbound,
-          outbounds: ["⚡ 自动选择", ...proxyList.filter((p) => p !== "⚡ 自动选择")]
+          outbounds: ["⚡ 自动选择", ...withoutReject(proxyList).filter((p) => p !== "⚡ 自动选择")]
         });
       }
     });
@@ -51,7 +51,7 @@ export class ConfigBuilder extends BaseConfigBuilder {
     this.config.outbounds.push({
       type: "selector",
       tag: "🐟 漏网之鱼",
-      outbounds: ["🚀 节点选择", ...proxyList]
+      outbounds: ["🚀 节点选择", ...withoutReject(proxyList)]
     });
   }
   formatConfig() {

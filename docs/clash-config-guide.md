@@ -309,6 +309,8 @@ proxy-groups:
 > 样本中 `🏠 私有网络`、`🔒 国内服务` 首项为 `🚀 节点选择`。本项目现已调整为这两个组首项为 `DIRECT`（默认直连），其余成员不变，仍可手动切回代理。
 >
 > 样本中 `🚀 节点选择` 首项为 `DIRECT`，导致新客户端开箱全部直连。本项目现已调整为首项 `⚡ 自动选择`，订阅后默认走代理。
+>
+> 本项目生成的策略组中，`REJECT` 只出现在 `🛑 广告拦截` 和自定义出站组里，其余分类组、`🚀 节点选择`、`🐟 漏网之鱼` 都不提供拒绝选项。
 
 `DIRECT`、`REJECT` 是内核内置出站，无需在 `proxies` 中定义，**也不能被策略组重名占用**。
 
@@ -526,7 +528,7 @@ sniffer:
 |---|---|---|
 | 顶层默认值、DNS | [src/config.js](../src/config.js) `CLASH_CONFIG` | 端口、`allow-lan`、`mode`、`log-level`、DNS 基础配置 |
 | `proxies` | [src/ProxyParsers.js](../src/ProxyParsers.js) → [src/ClashConfigBuilder.js](../src/ClashConfigBuilder.js) `convertToClashProxy` | 先解析为 sing-box 格式，再转换为 Clash 格式 |
-| `proxy-groups` | `ClashConfigBuilder.addSelectors` | 固定生成 `🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`，其余按所选规则生成；`UNIFIED_RULES` 中声明了 `default_outbound` 的类别首项为该出站：私有网络、国内服务为 `DIRECT`，广告拦截为 `REJECT` |
+| `proxy-groups` | `ClashConfigBuilder.addSelectors` | 固定生成 `🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`，其余按所选规则生成；`UNIFIED_RULES` 中声明了 `default_outbound` 的类别首项为该出站：私有网络、国内服务、苹果、微软为 `DIRECT`，广告拦截为 `REJECT`；`REJECT` 仅保留在广告拦截与自定义出站组 |
 | `rules` | [src/config.js](../src/config.js) `generateRules` + `ClashConfigBuilder.formatConfig` | 规则来源于 `UNIFIED_RULES`；`MATCH,🐟 漏网之鱼` 固定追加在末尾 |
 | 规则预设 | `PREDEFINED_RULE_SETS` | 样本对应 `minimal` = `Location:CN` + `Private` + `Non-China` |
 

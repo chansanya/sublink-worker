@@ -70,13 +70,15 @@ export const UNIFIED_RULES = [
     name: "Microsoft",
     outbound: "Ⓜ️ 微软服务",
     site_rules: ["microsoft"],
-    ip_rules: []
+    ip_rules: [],
+    default_outbound: "DIRECT"
   },
   {
     name: "Apple",
     outbound: "🍏 苹果服务",
     site_rules: ["apple"],
-    ip_rules: []
+    ip_rules: [],
+    default_outbound: "DIRECT"
   },
   {
     name: "Social Media",
@@ -120,10 +122,14 @@ export const BUILTIN_OUTBOUNDS = ["DIRECT", "REJECT"];
 const DEFAULT_OUTBOUND_BY_GROUP = Object.fromEntries(UNIFIED_RULES.filter((rule) => rule.default_outbound).map((rule) => [rule.outbound, rule.default_outbound]));
 
 // 分类策略组成员：默认跟随 🚀 节点选择；声明了 default_outbound 的放到首位（select 默认选首项）
+// REJECT 只保留在默认拦截的组里（广告拦截），其他分类组不提供拒绝选项；自定义出站组不经过这里
 export function groupMembers(outbound, proxyList) {
   const first = DEFAULT_OUTBOUND_BY_GROUP[outbound];
-  return first ? [first, "🚀 节点选择", ...proxyList.filter((p) => p !== first)] : ["🚀 节点选择", ...proxyList];
+  const members = proxyList.filter((p) => p !== first && (p !== "REJECT" || first === "REJECT"));
+  return first ? [first, "🚀 节点选择", ...members] : ["🚀 节点选择", ...members];
 }
+
+export const withoutReject = (list) => list.filter((p) => p !== "REJECT");
 
 const RULE_NAMES = UNIFIED_RULES.map((rule) => rule.name);
 const inUnifiedOrder = (names) => RULE_NAMES.filter((name) => names.includes(name));
