@@ -1,0 +1,630 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sublink Worker · 文档与使用指南</title>
+  <meta name="description" content="下一代自部署订阅管理中心。支持 Sing-Box / Clash / Xray 多协议聚合与订阅转换，提供 18 类智能规则分流、双层自定义规则、实时配置预览与短链服务。">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/docs/styles.css">
+  <script>
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
+  </script>
+</head>
+<body>
+  <!-- Top Navigation -->
+  <header class="topbar">
+    <a href="/docs/" class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M9 22c0-6 14-6 14-12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="9" cy="22" r="3" fill="currentColor"/><circle cx="23" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>
+      <span class="brand-name">Sublink</span>
+      <span class="brand-sub">Worker</span>
+      <span class="brand-badge">文档</span>
+    </a>
+    <div class="topbar-right">
+      <nav class="topbar-nav">
+        <a href="#quick-start" class="topbar-link">快速开始</a>
+        <a href="#rules" class="topbar-link">规则系统</a>
+        <a href="#custom-rules" class="topbar-link">自定义规则</a>
+        <a href="#api" class="topbar-link">API 参考</a>
+        <a href="#faq" class="topbar-link">常见问题</a>
+      </nav>
+      <a href="/" class="topbar-btn"><i data-icon="terminal"></i><span>转换工作台</span></a>
+      <a href="https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener" class="icon-btn" aria-label="GitHub" title="GitHub 仓库"><i data-icon="git-branch"></i></a>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题"><i data-icon="moon"></i></button>
+    </div>
+  </header>
+
+  <!-- Centered Hero -->
+  <section class="hero">
+    <div class="hero-logo-box">
+      <div class="hero-glow"></div>
+      <div class="hero-logo">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 22c0-6 14-6 14-12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><circle cx="9" cy="22" r="3" fill="currentColor"/><circle cx="23" cy="10" r="3" fill="none" stroke="currentColor" stroke-width="2.5"/></svg>
+      </div>
+    </div>
+    <h1 class="hero-title">Sublink Worker</h1>
+    <p class="hero-tagline">下一代轻量化订阅管理中心</p>
+    <p class="hero-desc">
+      一个 Worker 承载所有订阅。将节点链接与机场订阅转换为标准的 Clash、sing-box、Xray 配置；<br>
+      内置 18 大规则分类、包含冲突拓扑推荐排序、快捷直连/拦截规则、实时抽屉预览与持久化短链。
+    </p>
+    <div class="hero-actions">
+      <a href="#quick-start" class="btn-pill btn-primary"><i data-icon="arrow-right"></i><span>快速开始</span></a>
+      <a href="/" class="btn-pill btn-secondary"><i data-icon="terminal"></i><span>打开转换工作台</span></a>
+      <a href="https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener" class="btn-pill btn-secondary"><i data-icon="external-link"></i><span>GitHub 仓库</span></a>
+    </div>
+  </section>
+
+  <!-- Centered Features Grid -->
+  <section class="features">
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon-box"><i data-icon="layers"></i></div>
+        <h3 class="feature-title">多协议聚合转换</h3>
+        <p class="feature-desc">支持 <code>ss</code>、<code>vmess</code>、<code>vless</code>、<code>trojan</code>、<code>hysteria2</code>、<code>tuic</code> 与 <code>http(s)</code> 订阅混填，多行聚合去重，统一输出各大客户端标准格式。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box"><i data-icon="list-filter"></i></div>
+        <h3 class="feature-title">拓扑推荐与冲突检测</h3>
+        <p class="feature-desc">在线拉取真实域名名单，统计各分类规模；计算分类包含度并预警被截走风险，支持一键拓扑推荐排序，保障分流准确性。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box"><i data-icon="pin"></i></div>
+        <h3 class="feature-title">双层自定义分流</h3>
+        <p class="feature-desc">快捷模式一行直连/拒绝域名或 IP 段，粘贴自动解析；高级模式支持自定义策略组与 Geo-Site/Geo-IP，默认置顶优先匹配。</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon-box"><i data-icon="server"></i></div>
+        <h3 class="feature-title">零运维边缘部署</h3>
+        <p class="feature-desc">基于 Cloudflare Workers ES Module 开发，无需自建服务器与后端维护；Workers KV 驱动自定义短链，毫秒级响应。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sticky Section Navigation -->
+  <nav class="doc-nav-sticky">
+    <div class="doc-nav-inner">
+      <a href="#quick-start" class="doc-nav-tab active"><i data-icon="sparkles"></i>快速开始</a>
+      <a href="#rules" class="doc-nav-tab"><i data-icon="list-filter"></i>规则系统</a>
+      <a href="#custom-rules" class="doc-nav-tab"><i data-icon="pin"></i>自定义规则</a>
+      <a href="#preview" class="doc-nav-tab"><i data-icon="file-code-2"></i>实时预览与短链</a>
+      <a href="#api" class="doc-nav-tab"><i data-icon="terminal"></i>API 参考</a>
+      <a href="#client-config" class="doc-nav-tab"><i data-icon="book-open"></i>配置指南</a>
+      <a href="#faq" class="doc-nav-tab"><i data-icon="circle-help"></i>常见问题</a>
+    </div>
+  </nav>
+
+  <!-- Centered Documentation Content -->
+  <main class="doc-wrapper">
+
+    <!-- 1. Quick Start -->
+    <section class="doc-section" id="quick-start">
+      <div class="section-header">
+        <span class="section-tag">01 / DEPLOYMENT</span>
+        <h2>快速开始</h2>
+      </div>
+      <p>Sublink Worker 专为个人自托管设计，零外部依赖，可以通过以下三种方式部署与运行：</p>
+
+      <h3>方式一：Cloudflare Workers 一键部署（推荐）</h3>
+      <p>如果你不想在本地配置 Node.js 开发环境，可以使用 Cloudflare 官方的 Deploy 流程：</p>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <h4>点击一键部署按钮</h4>
+            <p>点击仓库 README 中的 <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener">Deploy to Cloudflare</a> 按钮，Cloudflare 会将项目 Fork 到你的 GitHub / GitLab 账户。</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <h4>自动绑定 KV 命名空间</h4>
+            <p>Cloudflare 会自动创建一个专属的 <code>SUBLINK_KV</code> 命名空间并注入 Worker。部署完成后，访问你的 <code>*.workers.dev</code> 域名即可直接使用。</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <h4>后续更新与协同</h4>
+            <p>当你向自己的 GitHub 仓库推送更新时，Cloudflare 会自动重新构建并分发到全球边缘节点。</p>
+          </div>
+        </div>
+      </div>
+
+      <h3>方式二：Wrangler CLI 手动部署</h3>
+      <p>如果你熟悉命令行，可以通过 Wrangler 直接将项目发布到你的 Cloudflare 账户：</p>
+      <div class="code-block">
+        <div class="code-head">
+          <span class="code-lang">bash</span>
+          <button type="button" class="code-copy-btn"><i data-icon="copy"></i><span>复制</span></button>
+        </div>
+        <pre><code># 1. 克隆仓库并安装依赖
+git clone https://github.com/chansanya/sublink-worker.git
+cd sublink-worker
+npm install
+
+# 2. 登录 Cloudflare 账户
+npx wrangler login
+
+# 3. 创建用于持久化短链的 KV 命名空间（记下控制台输出的 id）
+npx wrangler kv namespace create SUBLINK_KV
+
+# 4. 将生成的 id 填入 wrangler.jsonc 中的 kv_namespaces 数组
+# 5. 执行部署
+npm run deploy</code></pre>
+      </div>
+
+      <div class="callout tip">
+        <i data-icon="sparkles" class="callout-icon"></i>
+        <div class="callout-content">
+          <strong>Wrangler 配置文件说明</strong>
+          <code>wrangler.jsonc</code> 默认的 KV <code>id</code> 是全零占位符，用来配合一键部署按钮。本地手动发布前必须先替换为自己创建的真实 KV namespace id。
+        </div>
+      </div>
+
+      <h3>方式三：本地开发与运行</h3>
+      <p>在本地调试转换算法或前端 UI，无需 Cloudflare 真实账号：</p>
+      <div class="code-block">
+        <div class="code-head">
+          <span class="code-lang">bash</span>
+          <button type="button" class="code-copy-btn"><i data-icon="copy"></i><span>复制</span></button>
+        </div>
+        <pre><code>npm install
+npm run dev</code></pre>
+      </div>
+      <p>启动后访问 <code>http://localhost:8787</code>。本地环境会自动在 <code>.wrangler/state</code> 模拟 KV 存储，短链保存与跳转均可离线完整测试。</p>
+    </section>
+
+    <!-- 2. Rules System -->
+    <section class="doc-section" id="rules">
+      <div class="section-header">
+        <span class="section-tag">02 / RULE ARCHITECTURE</span>
+        <h2>规则分类与分流体系</h2>
+      </div>
+      <p>分流的核心在于<strong>顺序匹配</strong>：规则列表从上往下扫描，第一条命中即决定出站流量。如果把大范围规则（如全量国内服务）排在细分规则（如国内特定流媒体）之前，细分规则就会被“截胡”失效。</p>
+
+      <h3>18 大统一规则分类</h3>
+      <p>本项目定义了统一的规则字典 <code>UNIFIED_RULES</code>，所有输出客户端（Clash 与 sing-box）共享同一套分类标准：</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>规则分类</th>
+              <th>生成的策略组</th>
+              <th>默认首选出站</th>
+              <th>出站策略可选选项</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>🛑 广告拦截 (Ad Block)</td>
+              <td><code>🛑 广告拦截</code></td>
+              <td><code>REJECT</code> (默认拦截)</td>
+              <td>REJECT, 节点选择, 自动选择, DIRECT...</td>
+            </tr>
+            <tr>
+              <td>🏠 私有网络 (Private)</td>
+              <td><code>🏠 私有网络</code></td>
+              <td><code>DIRECT</code> (默认直连)</td>
+              <td>DIRECT, 节点选择, 自动选择...</td>
+            </tr>
+            <tr>
+              <td>🔒 国内服务 (Location:CN)</td>
+              <td><code>🔒 国内服务</code></td>
+              <td><code>DIRECT</code> (默认直连)</td>
+              <td>DIRECT, 节点选择, 自动选择...</td>
+            </tr>
+            <tr>
+              <td>🍎 苹果服务 (Apple)</td>
+              <td><code>🍎 苹果服务</code></td>
+              <td><code>DIRECT</code> (默认直连)</td>
+              <td>DIRECT, 节点选择, 自动选择...</td>
+            </tr>
+            <tr>
+              <td>Ⓜ️ 微软服务 (Microsoft)</td>
+              <td><code>Ⓜ️ 微软服务</code></td>
+              <td><code>DIRECT</code> (默认直连)</td>
+              <td>DIRECT, 节点选择, 自动选择...</td>
+            </tr>
+            <tr>
+              <td>🤖 AI 服务 (AI Services)</td>
+              <td><code>🤖 AI 服务</code></td>
+              <td><code>🚀 节点选择</code> (走代理)</td>
+              <td>节点选择, 自动选择, DIRECT, 各独立节点</td>
+            </tr>
+            <tr>
+              <td>📺 YouTube / Netflix / Disney+</td>
+              <td>对应媒体策略组</td>
+              <td><code>🚀 节点选择</code> (走代理)</td>
+              <td>节点选择, 自动选择, DIRECT, 各独立节点</td>
+            </tr>
+            <tr>
+              <td>✈️ Telegram / 社交媒体</td>
+              <td>对应应用策略组</td>
+              <td><code>🚀 节点选择</code> (走代理)</td>
+              <td>节点选择, 自动选择, DIRECT, 各独立节点</td>
+            </tr>
+            <tr>
+              <td>🌐 非中国域名 (Non-China)</td>
+              <td><code>🌐 非中国</code></td>
+              <td><code>🚀 节点选择</code> (走代理)</td>
+              <td>节点选择, 自动选择, DIRECT, 各独立节点</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout note">
+        <i data-icon="shield-ban" class="callout-icon"></i>
+        <div class="callout-content">
+          <strong>REJECT 选项精简设计</strong>
+          在生成的客户端策略组中，<code>REJECT</code> 拒绝出站<strong>仅出现在「🛑 广告拦截」以及用户自定义的出站策略组中</strong>。其余常规应用分类（如 YouTube、GitHub）、主策略组（🚀 节点选择）以及兜底组（🐟 漏网之鱼）均已剔除 REJECT，避免用户误触断网。
+        </div>
+      </div>
+
+      <h3>预设与推荐排序</h3>
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-num"><i data-icon="sparkles"></i></div>
+          <div class="step-body">
+            <h4>三档规则预设</h4>
+            <p><strong>精简 (Minimal)</strong>：仅保留国内服务、私有网络与非中国，轻巧极简。<br>
+               <strong>均衡 (Balanced)</strong>：在精简基础上加入广告拦截、AI 服务、YouTube、GitHub、Telegram、苹果、微软等主流需求。<br>
+               <strong>全面 (Comprehensive)</strong>：启用全部 18 类规则，细分到各类社交、流媒体与学术网络。</p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num"><i data-icon="grip-vertical"></i></div>
+          <div class="step-body">
+            <h4>自由拖拽与推荐排序</h4>
+            <p>在前端工作台可自由拖动卡片调整优先级顺序。点击「推荐排序」，系统会自动将广告拦截置顶、纯 IP 规则排在次位，并根据 MetaCubeX 域名树拓扑计算包含关系：<strong>小分类在前、大合集在后</strong>，从算法层面实现 0 冲突。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Custom Rules -->
+    <section class="doc-section" id="custom-rules">
+      <div class="section-header">
+        <span class="section-tag">03 / CUSTOMIZATION</span>
+        <h2>自定义规则系统</h2>
+      </div>
+      <p>为满足个性化的例外分流需求，Sublink Worker 提供了独特的双层自定义规则机制：</p>
+
+      <h3>1. 快捷规则 (Quick Rules)</h3>
+      <p>针对最常见的直连或拦截需求，无需理解复杂的出站策略组，一行完成：</p>
+      <ul>
+        <li><strong>动作选择</strong>：<code>直连 (DIRECT)</code> 或 <code>拒绝 (REJECT)</code></li>
+        <li><strong>匹配类型</strong>：<code>域名 (DOMAIN)</code>、<code>域名后缀 (DOMAIN-SUFFIX)</code>、<code>IP段 (IP-CIDR)</code></li>
+        <li><strong>智能解析</strong>：支持多个值用逗号、空格或回车分隔；直接粘贴完整 URL 会自动抽取纯域名；输入单 IP 会自动补齐 <code>/32</code> CIDR 掩码。</li>
+      </ul>
+
+      <h3>2. 高级规则 (Advanced Rules)</h3>
+      <p>在折叠的「高级规则」面板中，你可以创建更加灵活的分流策略：</p>
+      <ul>
+        <li><strong>自定义策略组</strong>：出站填入新名称（如 <code>🎮 游戏专线</code>），Builder 会自动在客户端配置中新建该策略组并绑定对应节点。若出站填入 <code>DIRECT</code> 或 <code>REJECT</code>，则直接导向内核内置出站。</li>
+        <li><strong>Geo-Site & Geo-IP</strong>：支持调用 Geo 数据库分类名称（前端输入时会自动在线校验名称合法性，填错实时标红）。</li>
+        <li><strong>关键词与协议</strong>：支持 <code>DOMAIN-KEYWORD</code> 关键词匹配及 <code>PROTOCOL</code> 协议分流。</li>
+      </ul>
+
+      <div class="callout tip">
+        <i data-icon="pin" class="callout-icon"></i>
+        <div class="callout-content">
+          <strong>默认置顶 (Pin) 机制</strong>
+          自定义规则默认开启「置顶」。在生成的最终配置中，自定义快捷规则与高级规则排在所有 18 个分类规则之前，优先被内核评估，确保你的例外名单绝对生效。
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Preview & Short URLs -->
+    <section class="doc-section" id="preview">
+      <div class="section-header">
+        <span class="section-tag">04 / PREVIEW & SHORT URLS</span>
+        <h2>实时预览与短链服务</h2>
+      </div>
+
+      <h3>侧边抽屉实时预览</h3>
+      <p>工作台右侧提供了一个响应式配置预览抽屉：</p>
+      <ul>
+        <li><strong>多内核格式切换</strong>：支持一键切换查看 Clash YAML、sing-box JSON 与 Xray 聚合列表。</li>
+        <li><strong>防抖请求与改动高亮</strong>：在左侧修改节点、勾选分类或添加自定义规则时，预览会在后台防抖请求真实接口，并在右侧高亮显示变动的行。</li>
+        <li><strong>段落快速跳转</strong>：顶部 Chips 支持快速定位到 <code>proxies</code>、<code>proxy-groups</code>、<code>rules</code>、<code>dns</code> 等主要配置块。</li>
+        <li><strong>收起与展开</strong>：抽屉收起时不发起不必要的网络请求；在窄屏或移动端自动转为右侧滑出抽屉。</li>
+      </ul>
+
+      <h3>短链与持久化托管</h3>
+      <p>生成完整的订阅 URL 往往包含复杂的参数字符串，不便于在移动设备输入。Sublink Worker 提供了基于 KV 的短链生成能力：</p>
+      <div class="code-block">
+        <div class="code-head">
+          <span class="code-lang">http</span>
+          <button type="button" class="code-copy-btn"><i data-icon="copy"></i><span>复制</span></button>
+        </div>
+        <pre><code># Clash 专属短链（自动跳转到 /clash 并在末尾拼接保存的 query 参数）
+https://your-domain.workers.dev/c/my-node
+
+# sing-box 专属短链（自动跳转到 /singbox）
+https://your-domain.workers.dev/b/my-node
+
+# Xray 专属短链（自动跳转到 /xray）
+https://your-domain.workers.dev/x/my-node</code></pre>
+      </div>
+      <p><strong>短链覆盖更新</strong>：如果你修改了节点或规则，并在短链框输入相同的自定义路径，原短链配置会被覆盖更新，客户端无需重新导入地址！</p>
+    </section>
+
+    <!-- 5. API Reference -->
+    <section class="doc-section" id="api">
+      <div class="section-header">
+        <span class="section-tag">05 / API REFERENCE</span>
+        <h2>API 参考</h2>
+      </div>
+      <p>Sublink Worker 提供纯净的 RESTful HTTP 接口，可供第三方应用、自动化脚本或各类客户端直接调用：</p>
+
+      <h3>1. 订阅配置输出端点</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>路径</th>
+              <th>输出格式</th>
+              <th>主要查询参数</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>GET /clash</code></td>
+              <td><code>text/yaml; charset=utf-8</code> (Clash mihomo)</td>
+              <td><code>config</code>, <code>selectedRules</code>, <code>customRules</code>, <code>pin</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /singbox</code></td>
+              <td><code>application/json; charset=utf-8</code> (sing-box 1.8+)</td>
+              <td><code>config</code>, <code>selectedRules</code>, <code>customRules</code>, <code>pin</code></td>
+            </tr>
+            <tr>
+              <td><code>GET /xray</code></td>
+              <td><code>application/json; charset=utf-8</code> (base64 聚合节点)</td>
+              <td><code>config</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>参数规范</h3>
+      <ul>
+        <li><code>config</code>（必须）：换行分隔的节点链接（<code>ss://</code> 等）或 <code>http(s)://</code> 机场订阅地址。</li>
+        <li><code>selectedRules</code>：预设名称（<code>minimal</code> / <code>balanced</code> / <code>comprehensive</code>），或者 JSON 编码的规则名数组（如 <code>["AI Services", "Location:CN"]</code>）。</li>
+        <li><code>customRules</code>：JSON 编码的自定义规则对象数组。</li>
+        <li><code>pin</code>：布尔字符串 <code>true</code> 或 <code>false</code>，控制自定义规则是否排在最前。</li>
+      </ul>
+
+      <h3>2. 短链生成与跳转</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>端点</th>
+              <th>方法</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>/shorten-v2?url=...&shortCode=...</code></td>
+              <td>GET</td>
+              <td>将 URL 的查询参数提取并存储到 KV 中，返回对应的短码。</td>
+            </tr>
+            <tr>
+              <td><code>/c/:code</code></td>
+              <td>GET</td>
+              <td>重定向 (302) 到带存储参数的 <code>/clash</code>。</td>
+            </tr>
+            <tr>
+              <td><code>/b/:code</code></td>
+              <td>GET</td>
+              <td>重定向 (302) 到带存储参数的 <code>/singbox</code>。</td>
+            </tr>
+            <tr>
+              <td><code>/x/:code</code></td>
+              <td>GET</td>
+              <td>重定向 (302) 到带存储参数的 <code>/xray</code>。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>3. 内部数据辅助端点</h3>
+      <ul>
+        <li><code>GET /api/rules</code>：返回全部规则分类列表与预设定义，供前端渲染卡片。</li>
+        <li><code>GET /api/geosite/:name</code>：代理 MetaCubeX 已展开 include 的纯文本域名名单，边缘缓存 1 天，用于前端实时计算域名数与两两覆盖包含度。</li>
+      </ul>
+    </section>
+
+    <!-- 6. Client Config -->
+    <section class="doc-section" id="client-config">
+      <div class="section-header">
+        <span class="section-tag">06 / CLIENT CONFIG</span>
+        <h2>客户端配置指南</h2>
+      </div>
+      <p>了解生成的配置文件结构，有助于更好地优化分流策略并排查客户端连接问题：</p>
+
+      <div class="callout tip">
+        <i data-icon="book-open" class="callout-icon"></i>
+        <div class="callout-content">
+          <strong>深度解析文档</strong>
+          有关 Clash（mihomo）各个核心字段的含义、默认参数以及由本项目哪部分代码生成，请参阅：<br>
+          👉 <a href="https://github.com/chansanya/sublink-worker/blob/main/docs/clash-config-guide.md" target="_blank">Clash（mihomo）配置文件详解（GitHub 完整阅读）</a> 或 <a href="/docs/clash-config-guide.md" target="_blank">纯文本 Markdown</a>。
+        </div>
+      </div>
+
+      <h3>中间表示机制 (IR)</h3>
+      <p>Sublink Worker 内部以 <strong>sing-box outbound 格式</strong> 作为中间数据表示：</p>
+      <ul>
+        <li>各类协议解析器（<code>src/ProxyParsers.js</code>）统一将各协议 URL 转换为标准 sing-box outbound 对象。</li>
+        <li>输出 Clash 格式时，由 <code>src/ClashConfigBuilder.js</code> 的 <code>convertToClashProxy</code> 进行一次无损桥接转换。</li>
+        <li>策略组名称两端严格对齐：固定生成 <code>🚀 节点选择</code>、<code>⚡ 自动选择</code>、<code>🐟 漏网之鱼</code>（兜底 MATCH）；sing-box 额外包含 <code>GLOBAL</code>。</li>
+      </ul>
+    </section>
+
+    <!-- 7. FAQ -->
+    <section class="doc-section" id="faq">
+      <div class="section-header">
+        <span class="section-tag">07 / FAQ</span>
+        <h2>常见问题 (FAQ)</h2>
+      </div>
+
+      <details class="faq-item" open>
+        <summary>
+          <span>1. 客户端更新订阅提示网络错误或解析失败？</span>
+          <i data-icon="chevron-down" class="faq-chevron"></i>
+        </summary>
+        <div class="faq-content">
+          <p>请首先在浏览器中直接打开生成的订阅链接（或短链）：</p>
+          <ol>
+            <li>如果浏览器返回 <code>Missing config parameter</code>，说明输入的节点信息或订阅源为空。</li>
+            <li>如果返回 <code>Short URL not found</code>，说明短链码未在 KV 存储中生效，请检查 <code>wrangler.jsonc</code> 的 KV <code>id</code> 是否正确配置。</li>
+            <li>若节点提供商的机场订阅域名被墙或开启了防刷防火墙，Cloudflare Worker 在拉取时可能会超时，可尝试直接粘贴 base64 节点或节点链接本身。</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span>2. 为什么部分分类默认是 DIRECT，而不能全部走代理？</span>
+          <i data-icon="chevron-down" class="faq-chevron"></i>
+        </summary>
+        <div class="faq-content">
+          <p>在日常网络环境中，国内服务、私有局域网、苹果服务与微软服务如果强制走代理，极易导致银行 App 风控、本地 NAS 无法访问或应用商店连接迟钝。本项目将这四类策略组的首项设为 <code>DIRECT</code>（开箱即直连），但在策略组里依然保留了节点选项，你随时可以在客户端手动切回代理出站。</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span>3. 如何让多个设备或客户端共用同一个订阅并随时修改？</span>
+          <i data-icon="chevron-down" class="faq-chevron"></i>
+        </summary>
+        <div class="faq-content">
+          <p>建议使用工作台第 04 块的「短链」功能：在输入框中填入你喜欢的固定名字（如 <code>my-profile</code>），点击生成短链。将生成的 <code>/c/my-profile</code> 填入 Clash、<code>/b/my-profile</code> 填入 sing-box。以后无论你更换节点还是调整分流规则，只要再次用相同的 <code>my-profile</code> 名字生成短链，KV 会直接覆盖更新，所有设备的订阅地址永不需要重新配置！</p>
+        </div>
+      </details>
+
+      <details class="faq-item">
+        <summary>
+          <span>4. 为什么移除了原项目的外部底板配置 (POST /config)？</span>
+          <i data-icon="chevron-down" class="faq-chevron"></i>
+        </summary>
+        <div class="faq-content">
+          <p>原项目的自定义底板功能允许通过 <code>configId</code> 上传自定义的 Clash/sing-box YAML/JSON 模板，但存在严重的跨客户端兼容性隐患、KV 垃圾冗余和安全风险。重构后，本项目将内核配置（DNS、端口、入站、嗅探等）统一内置调优，并通过可视化的 18 大分类和双层自定义规则取代了原先手工编写脆弱模板的方式，更加安全稳定。</p>
+        </div>
+      </details>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-links">
+      <a href="/">订阅转换工作台</a>
+      <span>·</span>
+      <a href="/docs/clash-config-guide.md">Clash 详解</a>
+      <span>·</span>
+      <a href="https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener">GitHub 仓库</a>
+      <span>·</span>
+      <a href="https://github.com/7Sageer/sublink-worker" target="_blank" rel="noopener">Upstream</a>
+    </div>
+    <p>© 2026 Sublink Worker · 基于 MIT 许可证开源</p>
+    <p style="font-size: 12px; color: var(--text-3);">基于 7Sageer/sublink-worker 重构的轻量化 Serverless 订阅聚合服务</p>
+  </footer>
+
+  <div class="toast" id="toast">已复制到剪贴板</div>
+
+  <script src="/icons.js"></script>
+  <script>
+    // Theme toggle
+    const themeToggle = document.getElementById("themeToggle");
+    const updateThemeIcon = (theme) => {
+      const icon = themeToggle.querySelector(".icon") || themeToggle.querySelector("i");
+      if (icon) {
+        icon.setAttribute("data-icon", theme === "dark" ? "moon" : "sun");
+      }
+    };
+    themeToggle.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("theme", next);
+      updateThemeIcon(next);
+      if (window.hydrateIcons) window.hydrateIcons(themeToggle);
+    });
+
+    // Copy buttons
+    const toast = document.getElementById("toast");
+    let toastTimer;
+    const showToast = (msg = "已复制到剪贴板") => {
+      toast.textContent = msg;
+      toast.classList.add("show");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2000);
+    };
+
+    document.querySelectorAll(".code-copy-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const code = btn.closest(".code-block").querySelector("code").innerText;
+        navigator.clipboard.writeText(code).then(() => {
+          const originalText = btn.innerHTML;
+          btn.innerHTML = `<i data-icon="check"></i><span>已复制</span>`;
+          if (window.hydrateIcons) window.hydrateIcons(btn);
+          showToast("代码已复制到剪贴板");
+          setTimeout(() => {
+            btn.innerHTML = originalText;
+            if (window.hydrateIcons) window.hydrateIcons(btn);
+          }, 2000);
+        });
+      });
+    });
+
+    // Active nav tab tracking on scroll
+    const sections = document.querySelectorAll(".doc-section");
+    const navTabs = document.querySelectorAll(".doc-nav-tab");
+    window.addEventListener("scroll", () => {
+      let current = "";
+      const scrollY = window.pageYOffset;
+      sections.forEach((sec) => {
+        const top = sec.offsetTop - 140;
+        if (scrollY >= top) {
+          current = sec.getAttribute("id");
+        }
+      });
+      navTabs.forEach((tab) => {
+        tab.classList.toggle("active", tab.getAttribute("href") === `#${current}`);
+      });
+    }, { passive: true });
+
+    // Hydrate Lucide Icons
+    if (window.ICONS) {
+      function hydrate(root = document) {
+        root.querySelectorAll("i[data-icon]").forEach((el) => {
+          const name = el.dataset.icon;
+          const node = window.ICONS[name];
+          if (!node) return;
+          const [tag, attrs, children] = node;
+          const svg = document.createElementNS("http://www.w3.org/2000/svg", tag);
+          for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+          svg.setAttribute("class", "icon");
+          for (const [cTag, cAttrs] of children || []) {
+            const child = document.createElementNS("http://www.w3.org/2000/svg", cTag);
+            for (const [k, v] of Object.entries(cAttrs)) child.setAttribute(k, v);
+            svg.appendChild(child);
+          }
+          el.replaceWith(svg);
+        });
+      }
+      window.hydrateIcons = hydrate;
+      hydrate();
+      updateThemeIcon(document.documentElement.dataset.theme);
+      hydrate(themeToggle);
+    }
+  </script>
+</body>
+</html>

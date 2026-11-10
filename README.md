@@ -61,7 +61,13 @@ npm run dev        # http://localhost:8787
 
 ## 文档
 
+- [在线文档与使用指南](/docs/)（本地访问 `http://localhost:8787/docs/`）：内置仿 VitePress 风格的居中交互式完整文档
+- [快速开始与部署指南](docs/quick-start.md)：Cloudflare Workers 一键部署、CLI 手动部署与本地运行
+- [规则系统与分流架构](docs/rules.md)：18 类统一规则分类、预设对比、冲突检测与拓扑推荐排序
+- [自定义规则指南](docs/custom-rules.md)：快捷直连/拦截与高级出站规则配置
+- [API 接口参考](docs/api.md)：`/clash`、`/singbox`、`/xray` 与持久化短链端点规范
 - [Clash（mihomo）配置文件详解](docs/clash-config-guide.md)：逐字段解释客户端配置，以及各部分由本项目哪段代码生成
+- [常见问题 (FAQ)](docs/faq.md)：订阅更新、常见排障与使用技巧
 
 ## 致谢
 

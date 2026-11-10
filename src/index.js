@@ -12,6 +12,9 @@ export default {
 async function handleRequest(request, env) {
   try {
     const url = new URL(request.url);
+    if (url.pathname === "/docs") {
+      return Response.redirect(`${url.origin}/docs/`, 301);
+    }
     if (url.pathname === "/api/rules") {
       const rules = UNIFIED_RULES.map(({ name, outbound, site_rules, default_outbound }) => ({ name, outbound, site_rules, default_outbound: default_outbound || null }));
       return Response.json({ rules, presets: PREDEFINED_RULE_SETS });

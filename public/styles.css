@@ -119,6 +119,16 @@ h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
 .status[data-state="error"] .status-dot { background: var(--danger); }
 .status[data-state="error"] { color: var(--danger); }
 
+.topbar-nav { display: flex; align-items: center; gap: 8px; }
+.topbar-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 10px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; color: var(--text-2);
+  text-decoration: none; transition: background 0.15s, color 0.15s;
+}
+.topbar-link:hover { background: var(--surface-3); color: var(--text); }
+.topbar-link .icon { width: 15px; height: 15px; }
+
 .icon-btn {
   display: inline-grid; place-items: center;
   width: 32px; height: 32px; border-radius: 8px;
