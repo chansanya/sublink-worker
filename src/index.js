@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { PREDEFINED_RULE_SETS, UNIFIED_RULES } from "./config.js";
+import { PREDEFINED_RULE_SETS, UNIFIED_RULES, GEOSITE_LIST_BASE_URL } from "./config.js";
 import { GenerateWebPath, decodeBase64, encodeBase64 } from "./utils.js";
 import { ConfigBuilder } from "./SingboxConfigBuilder.js";
 import { ClashConfigBuilder } from "./ClashConfigBuilder.js";
@@ -14,8 +14,21 @@ async function handleRequest(request, env) {
   try {
     const url = new URL(request.url);
     if (url.pathname === "/api/rules") {
-      const rules = UNIFIED_RULES.map(({ name, outbound, default_direct }) => ({ name, outbound, default_direct: !!default_direct }));
+      const rules = UNIFIED_RULES.map(({ name, outbound, site_rules, default_outbound }) => ({ name, outbound, site_rules, default_outbound: default_outbound || null }));
       return Response.json({ rules, presets: PREDEFINED_RULE_SETS });
+    } else if (url.pathname.startsWith("/api/geosite/")) {
+      const name = decodeURIComponent(url.pathname.slice("/api/geosite/".length));
+      if (!/^[\w!@.-]+$/.test(name)) {
+        return new Response("Invalid name", { status: 400 });
+      }
+      const upstream = await fetch(`${GEOSITE_LIST_BASE_URL}${name}.list`, { cf: { cacheTtl: 86400, cacheEverything: true } });
+      if (upstream.status === 404) {
+        return new Response("Not Found", { status: 404, headers: { "Cache-Control": "public, max-age=3600" } });
+      }
+      if (!upstream.ok) {
+        return new Response("Upstream error", { status: 502 });
+      }
+      return new Response(upstream.body, { headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=86400" } });
     } else if (url.pathname.startsWith("/singbox") || url.pathname.startsWith("/clash")) {
       const inputString = url.searchParams.get("config");
       let selectedRules = url.searchParams.get("selectedRules");

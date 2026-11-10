@@ -24,11 +24,12 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 
 **Builder 模板方法**：`BaseConfigBuilder.build()` = `parseCustomItems` → `addCustomItems` → `addSelectors` → `formatConfig`。sing-box 的实现类名是 `ConfigBuilder`（不是 `SingboxConfigBuilder`）。两个 Builder 的 `addSelectors` 逻辑平行，硬编码了相同的策略组名：`🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`（兜底 final/MATCH），sing-box 额外有 `GLOBAL`；`🚀 节点选择` 首项为 `⚡ 自动选择`（即默认项）。改组名或分组逻辑必须两边同步。
 
-**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，标记 `default_direct: true` 的规则（经 `DIRECT_DEFAULT_OUTBOUNDS`）生成的组首项为 `DIRECT`，即默认直连。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`selectedRules` 一律经 `resolveSelectedRules` 解析：预设名展开为 `UNIFIED_RULES` 固定顺序，数组则**保持传入顺序**（前端拖动排序的结果），规则与策略组都按该顺序生成。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。默认底板配置为 `SING_BOX_CONFIG` / `CLASH_CONFIG`，Builder 内部会 `DeepCopy`。
+**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，规则可声明 `default_outbound`（`DIRECT`/`REJECT`），两个 Builder 通过 `groupMembers` 把它放到组首位，即默认选中（私有网络、国内服务默认直连，广告拦截默认拦截）。`UNIFIED_RULES` 的默认顺序遵循“小分类在前、包含它的大分类在后”（如 YouTube 在谷歌前、云服务在微软前），调整时用前端的冲突提示检验。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`selectedRules` 一律经 `resolveSelectedRules` 解析：预设名展开为 `UNIFIED_RULES` 固定顺序，数组则**保持传入顺序**（前端拖动排序的结果），规则与策略组都按该顺序生成。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。默认底板配置为 `SING_BOX_CONFIG` / `CLASH_CONFIG`，Builder 内部会 `DeepCopy`。
 
 **路由**：
 - `GET /`：静态资源 `public/index.html`，不经过 Worker
-- `GET /api/rules`：前端用的规则分类与预设数据（来自 `UNIFIED_RULES` / `PREDEFINED_RULE_SETS`）
+- `GET /api/rules`：前端用的规则分类与预设数据（来自 `UNIFIED_RULES` / `PREDEFINED_RULE_SETS`，含 `site_rules`、`default_outbound`）
+- `GET /api/geosite/:name`：代理 MetaCubeX 已展开 include 的纯文本名单（`GEOSITE_LIST_BASE_URL`，与 Clash 的 geosite.dat 同源），边缘缓存 1 天；不存在返回 404。供前端在线分析，每次请求只产生 1 个子请求
 - `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，逗号分隔）、`pin`、`configId`
 - `/xray`：拉取并合并订阅，输出 base64
 - `/shorten`（旧，存完整 URL，`/s/:code` 跳转）、`/shorten-v2`（存 query string，`/b/` `/c/` `/x/` 分别跳转到 singbox / clash / xray）
@@ -41,3 +42,5 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 - **订阅链接格式必须与旧版逐字节兼容**（`buildUrls`）：`selectedRules` 为预设名字符串或规则名数组，`customRules` 为逗号拼接的字符串字段，`configId` 不编码。改动会导致已分发的链接与新生成的不一致。
 - 图标是 `scripts/build-icons.mjs` 从 lucide 导出的子集（`window.ICONS`），HTML 中写 `<i data-icon="name">`，由 `hydrateIcons` 替换为 SVG；界面不使用 emoji，规则组名里的 emoji 用 `stripEmoji` 去掉后展示。
 - qrcode-generator 从 jsDelivr 异步加载，二维码功能需判断全局 `qrcode` 是否就绪。
+- 在线分析（`analyzeRules`）：启动后经 `/api/geosite` 拉取全部分类名单，在浏览器计算域名数与两两覆盖率。`ruleConflicts` 判定冲突需同时满足：A 排在 B 后、A 被 B 覆盖的比例高于反向（排除两者只是共享一块，如云服务/微软共享 Azure）、比例 ≥ `CONFLICT_RATIO` 或被截走数 ≥ `CONFLICT_HITS`（照顾广告这类横跨国内外的分类）。自定义规则的 Geo-Site 名称用同一接口校验是否存在（`validateSites`）。
+- 显式点「自定义」恢复上次的勾选与顺序；在预设下直接点卡片、拖动或点修正按钮，则经 `enterCustom` 从该预设开始自定义。

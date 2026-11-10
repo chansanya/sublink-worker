@@ -31,6 +31,11 @@
   let state;
   let currentLinks = null;
   const preview = { seq: 0, ctrl: null, lines: {}, text: {}, reason: "init" };
+  // 排序冲突：比例达标或绝对数量达标（照顾广告这类横跨国内外、比例不高但数量大的分类）
+  const CONFLICT_RATIO = 0.2;
+  const CONFLICT_HITS = 150;
+  const geo = { status: new Map(), lists: new Map(), pending: new Map() };
+  const analysis = { state: "idle", counts: {}, cover: {}, hits: {} };
 
   // ---------- utils ----------
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -189,27 +194,155 @@
   }
 
   // ---------- 02 rule categories ----------
+  const DEFAULT_BADGE = { DIRECT: ["直连", ""], REJECT: ["拦截", " is-reject"] };
+  const ruleLabel = (name) => stripEmoji(meta.rules.find((r) => r.name === name)?.outbound || name);
+  const formatCount = (n) => (n >= 10000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
+
   function renderRules() {
     const selectedList = effectiveSelected();
     const selected = new Set(selectedList);
+    const conflicts = ruleConflicts();
     const byName = Object.fromEntries(meta.rules.map((r) => [r.name, r]));
     $$("#presetSwitch button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.preset === state.preset)));
     $("#ruleGrid").innerHTML = displayOrder()
       .map((name) => byName[name])
       .filter(Boolean)
-      .map((r) => `
-        <button type="button" class="rule-tile" data-rule="${esc(r.name)}" aria-pressed="${selected.has(r.name)}">
+      .map((r) => {
+        const count = analysis.counts[r.name];
+        const badge = DEFAULT_BADGE[r.default_outbound];
+        return `
+        <button type="button" class="rule-tile${conflicts.has(r.name) ? " has-conflict" : ""}" data-rule="${esc(r.name)}" aria-pressed="${selected.has(r.name)}">
           <span class="rule-grip" data-grip title="拖动排序">${icon("grip-vertical")}</span>
           <span class="rule-tile-rank">${selected.has(r.name) ? String(selectedList.indexOf(r.name) + 1).padStart(2, "0") : ""}</span>
           <span class="rule-tile-icon">${icon(RULE_ICONS[r.name] || "layers")}</span>
           <span class="rule-tile-text">
             <span class="rule-tile-name">${esc(stripEmoji(r.outbound))}</span>
-            <span class="rule-tile-sub">${esc(r.name)}</span>
+            <span class="rule-tile-sub"><span class="rule-tile-en">${esc(r.name)}</span>${count === undefined ? "" : `<span class="rule-tile-count" title="${count} 个域名">${formatCount(count)}</span>`}</span>
           </span>
-          ${r.default_direct ? '<span class="rule-tile-badge">直连</span>' : ""}
-        </button>`)
+          ${badge ? `<span class="rule-tile-badge${badge[1]}">${badge[0]}</span>` : ""}
+        </button>`;
+      })
       .join("");
-    $("#ruleMeta").textContent = meta.rules.length ? `${selected.size} / ${meta.rules.length}` : "";
+    $("#ruleConflicts").innerHTML = [...conflicts]
+      .map(([name, c]) => `
+        <div class="conflict">
+          ${icon("circle-alert")}
+          <span>「${esc(ruleLabel(name))}」有 <b>${Math.round(c.pct * 100)}%</b>（${c.hits} 个）的域名会先被「${esc(ruleLabel(c.by))}」截走</span>
+          <button type="button" class="btn btn-sm" data-fix="${esc(name)}" data-before="${esc(c.first)}">${icon("arrow-up")}移到「${esc(ruleLabel(c.first))}」前面</button>
+        </div>`)
+      .join("");
+    const status = analysis.state === "loading" ? " · 分析中" : analysis.state === "error" ? " · 分析失败" : "";
+    $("#ruleMeta").textContent = meta.rules.length ? `${selected.size} / ${meta.rules.length}${status}` : "";
+  }
+
+  // ---------- online geosite analysis ----------
+  // 名单经 /api/geosite 从 MetaCubeX 拉取（与 Clash 的 geosite.dat 同源），覆盖率在浏览器里计算
+  function parseGeosite(text) {
+    const suffix = new Set();
+    const full = new Set();
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line || line.startsWith("#")) continue;
+      if (line.startsWith("+.")) suffix.add(line.slice(2));
+      else if (!line.includes(":")) full.add(line);
+    }
+    return { suffix, full };
+  }
+
+  // geo.status: ok | missing | unknown（网络失败不下结论，允许重试）
+  function loadGeosite(name) {
+    if (!geo.pending.has(name)) {
+      const task = fetch(`/api/geosite/${encodeURIComponent(name)}`)
+        .then(async (res) => {
+          if (res.status === 404) return geo.status.set(name, "missing");
+          if (!res.ok) throw new Error(String(res.status));
+          geo.lists.set(name, parseGeosite(await res.text()));
+          geo.status.set(name, "ok");
+        })
+        .catch(() => {
+          geo.status.set(name, "unknown");
+          geo.pending.delete(name);
+        });
+      geo.pending.set(name, task);
+    }
+    return geo.pending.get(name);
+  }
+
+  async function runPool(items, fn, size = 6) {
+    const queue = [...items];
+    await Promise.all(Array.from({ length: size }, async () => {
+      while (queue.length) await fn(queue.shift());
+    }));
+  }
+
+  // domain 是否被集合的后缀条目命中（自身或任一父域）
+  function hitBySuffix(domain, set) {
+    for (let d = domain; ; ) {
+      if (set.suffix.has(d)) return true;
+      const dot = d.indexOf(".");
+      if (dot < 0) return false;
+      d = d.slice(dot + 1);
+    }
+  }
+
+  async function analyzeRules() {
+    analysis.state = "loading";
+    renderRules();
+    const withSites = meta.rules.filter((r) => r.site_rules?.length);
+    await runPool([...new Set(withSites.flatMap((r) => r.site_rules))], loadGeosite);
+    const sets = {};
+    for (const r of withSites) {
+      if (r.site_rules.some((n) => geo.status.get(n) === "unknown")) continue;
+      const suffix = new Set();
+      const full = new Set();
+      r.site_rules.forEach((n) => {
+        geo.lists.get(n)?.suffix.forEach((d) => suffix.add(d));
+        geo.lists.get(n)?.full.forEach((d) => full.add(d));
+      });
+      sets[r.name] = { suffix, full };
+      analysis.counts[r.name] = suffix.size + full.size;
+    }
+    const names = Object.keys(sets);
+    for (const a of names) {
+      const A = sets[a];
+      const total = A.suffix.size + A.full.size;
+      analysis.cover[a] = {};
+      analysis.hits[a] = {};
+      if (!total) continue;
+      for (const b of names) {
+        if (a === b) continue;
+        const B = sets[b];
+        let hit = 0;
+        A.suffix.forEach((d) => hitBySuffix(d, B) && hit++);
+        A.full.forEach((d) => (B.full.has(d) || hitBySuffix(d, B)) && hit++);
+        analysis.cover[a][b] = hit / total;
+        analysis.hits[a][b] = hit;
+      }
+      await new Promise((resolve) => setTimeout(resolve));
+    }
+    analysis.state = names.length === withSites.length ? "ready" : "error";
+    renderRules();
+  }
+
+  // A 排在 B 之后，且 B 是"包含方"（A 被 B 覆盖的比例高于反向，排除两者只是共享一块的情况），
+  // 覆盖达到比例或数量阈值时，A 的这部分流量会被 B 截走
+  function ruleConflicts() {
+    const out = new Map();
+    if (analysis.state !== "ready" && analysis.state !== "error") return out;
+    const order = effectiveSelected();
+    order.forEach((a, j) => {
+      for (let i = 0; i < j; i++) {
+        const b = order[i];
+        const pct = analysis.cover[a]?.[b] || 0;
+        const hits = analysis.hits[a]?.[b] || 0;
+        if (pct <= (analysis.cover[b]?.[a] || 0)) continue;
+        if (pct < CONFLICT_RATIO && hits < CONFLICT_HITS) continue;
+        const prev = out.get(a);
+        const worse = !prev || pct > prev.pct;
+        out.set(a, { first: prev?.first ?? b, by: worse ? b : prev.by, pct: worse ? pct : prev.pct, hits: worse ? hits : prev.hits });
+      }
+    });
+    return out;
   }
 
   function bindRules() {
@@ -217,10 +350,9 @@
       const preset = e.target.closest("button")?.dataset.preset;
       if (!preset || preset === state.preset) return;
       if (preset === "custom") {
-        // 显式切到自定义：保留上次拖好的顺序
-        const keep = state.order;
-        enterCustom();
-        if (keep.length) state.order = keep;
+        // 显式切回自定义：完整恢复上次的勾选与顺序；从没自定义过则从当前预设开始
+        if (state.selected.length) state.preset = "custom";
+        else enterCustom();
       } else state.preset = preset;
       renderRules();
       refreshRuleFeet();
@@ -236,6 +368,17 @@
       changed();
     });
     bindRuleDrag($("#ruleGrid"));
+    $("#ruleConflicts").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-fix]");
+      if (!btn) return;
+      enterCustom();
+      const order = state.order.filter((n) => n !== btn.dataset.fix);
+      order.splice(order.indexOf(btn.dataset.before), 0, btn.dataset.fix);
+      state.order = order;
+      renderRules();
+      refreshRuleFeet();
+      changed();
+    });
   }
 
   function bindRuleDrag(grid) {
@@ -335,8 +478,9 @@
     };
   }
 
-  const tokensHtml = (values, newFrom = Infinity) =>
-    values.map((v, i) => `<span class="token${i >= newFrom ? " is-new" : ""}">${esc(v)}<button type="button" data-act="untoken" data-index="${i}" aria-label="移除 ${esc(v)}">${icon("x")}</button></span>`).join("");
+  const isMissingSite = (field, v) => field === "site" && geo.status.get(v) === "missing";
+  const tokensHtml = (values, newFrom = Infinity, field = "") =>
+    values.map((v, i) => `<span class="token${i >= newFrom ? " is-new" : ""}${isMissingSite(field, v) ? " is-bad" : ""}"${isMissingSite(field, v) ? ' title="名单不存在"' : ""}>${esc(v)}<button type="button" data-act="untoken" data-index="${i}" aria-label="移除 ${esc(v)}">${icon("x")}</button></span>`).join("");
 
   function ruleCardHtml(r, i, total) {
     return `
@@ -358,7 +502,7 @@
           ${FIELDS.map((f) => `
             <div class="field">
               <span class="field-label">${f.label}<span title="${esc(f.hint)}">${icon("circle-help")}</span></span>
-              <div class="tokens" data-field="${f.key}">${tokensHtml(r[f.key])}<input type="text" data-role="token" placeholder="${esc(f.placeholder)}" aria-label="${f.label}" autocomplete="off" spellcheck="false"></div>
+              <div class="tokens" data-field="${f.key}">${tokensHtml(r[f.key], Infinity, f.key)}<input type="text" data-role="token" placeholder="${esc(f.placeholder)}" aria-label="${f.label}" autocomplete="off" spellcheck="false"></div>
             </div>`).join("")}
         </div>
         <footer class="rule-card-foot" data-role="foot"></footer>
@@ -368,6 +512,16 @@
   function renderCustomRules() {
     const total = state.customRules.length;
     $("#customList").innerHTML = state.customRules.map((r, i) => ruleCardHtml(r, i, total)).join("");
+    refreshRuleFeet();
+    validateSites(state.customRules.flatMap((r) => r.site));
+  }
+
+  // 在线检查 Geo-Site 名称是否存在，结果回来后刷新标签与卡片提示
+  async function validateSites(names) {
+    const unchecked = [...new Set(names)].filter((n) => !geo.status.has(n) || geo.status.get(n) === "unknown");
+    if (!unchecked.length) return;
+    await Promise.all(unchecked.map(loadGeosite));
+    $$('.tokens[data-field="site"]', $("#customList")).forEach((container) => renderTokens(container, ruleOf(container)));
     refreshRuleFeet();
   }
 
@@ -382,6 +536,7 @@
       if (!name) warn = "填写出站后才会生成规则";
       else if (issues.dup.has(name)) warn = `出站「${name}」重复，同名策略组会导致配置加载失败`;
       else if (!BUILTIN.includes(name) && issues.conflict.has(name)) warn = `出站「${name}」与已有策略组重名`;
+      else if (r.site.some((n) => isMissingSite("site", n))) warn = `Geo-Site「${r.site.filter((n) => isMissingSite("site", n)).join("、")}」不存在，sing-box 会因下载规则集失败而无法加载配置`;
       else if (!clashCount && !r.protocol.length) warn = "还没有添加匹配条件";
       const foot = $('[data-role="foot"]', card);
       foot.classList.toggle("is-warn", !!warn);
@@ -397,8 +552,9 @@
   }
 
   function renderTokens(container, rule, newFrom) {
+    const field = container.dataset.field;
     $$(".token", container).forEach((t) => t.remove());
-    $('[data-role="token"]', container).insertAdjacentHTML("beforebegin", tokensHtml(rule[container.dataset.field], newFrom));
+    $('[data-role="token"]', container).insertAdjacentHTML("beforebegin", tokensHtml(rule[field], newFrom, field));
   }
 
   function commitTokens(input, raw) {
@@ -412,6 +568,7 @@
     renderTokens(container, rule, newFrom);
     refreshRuleFeet();
     changed();
+    if (container.dataset.field === "site") validateSites(fresh);
   }
 
   const ruleOf = (el) => state.customRules.find((r) => r.id === el.closest(".rule-card").dataset.id);
@@ -913,6 +1070,7 @@
     refreshRuleFeet();
     preview.reason = "init";
     runPreview();
+    if (meta.rules.length) analyzeRules();
   }
 
   boot();

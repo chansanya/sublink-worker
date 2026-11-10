@@ -526,7 +526,7 @@ sniffer:
 |---|---|---|
 | 顶层默认值、DNS | [src/config.js](../src/config.js) `CLASH_CONFIG` | 端口、`allow-lan`、`mode`、`log-level`、DNS 基础配置 |
 | `proxies` | [src/ProxyParsers.js](../src/ProxyParsers.js) → [src/ClashConfigBuilder.js](../src/ClashConfigBuilder.js) `convertToClashProxy` | 先解析为 sing-box 格式，再转换为 Clash 格式 |
-| `proxy-groups` | `ClashConfigBuilder.addSelectors` | 固定生成 `🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`，其余按所选规则生成；`UNIFIED_RULES` 中标记 `default_direct: true` 的类别（私有网络、国内服务）首项为 `DIRECT` |
+| `proxy-groups` | `ClashConfigBuilder.addSelectors` | 固定生成 `🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`，其余按所选规则生成；`UNIFIED_RULES` 中声明了 `default_outbound` 的类别首项为该出站：私有网络、国内服务为 `DIRECT`，广告拦截为 `REJECT` |
 | `rules` | [src/config.js](../src/config.js) `generateRules` + `ClashConfigBuilder.formatConfig` | 规则来源于 `UNIFIED_RULES`；`MATCH,🐟 漏网之鱼` 固定追加在末尾 |
 | 规则预设 | `PREDEFINED_RULE_SETS` | 样本对应 `minimal` = `Location:CN` + `Private` + `Non-China` |
 

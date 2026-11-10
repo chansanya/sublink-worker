@@ -1,11 +1,14 @@
 const SITE_RULE_SET_BASE_URL = "https://raw.githubusercontent.com/lyc8503/sing-box-rules/refs/heads/rule-set-geosite/";
 const IP_RULE_SET_BASE_URL = "https://raw.githubusercontent.com/lyc8503/sing-box-rules/refs/heads/rule-set-geoip/";
+// 已展开 include 的纯文本域名名单，与 Clash 使用的 geosite.dat 同源，供前端在线分析
+export const GEOSITE_LIST_BASE_URL = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/";
 export const UNIFIED_RULES = [
   {
     name: "Ad Block",
     outbound: "🛑 广告拦截",
     site_rules: ["category-ads-all"],
-    ip_rules: []
+    ip_rules: [],
+    default_outbound: "REJECT"
   },
   {
     name: "AI Services",
@@ -36,14 +39,14 @@ export const UNIFIED_RULES = [
     outbound: "🏠 私有网络",
     site_rules: [],
     ip_rules: ["private"],
-    default_direct: true
+    default_outbound: "DIRECT"
   },
   {
     name: "Location:CN",
     outbound: "🔒 国内服务",
     site_rules: ["geolocation-cn"],
     ip_rules: ["cn"],
-    default_direct: true
+    default_outbound: "DIRECT"
   },
   {
     name: "Telegram",
@@ -55,6 +58,12 @@ export const UNIFIED_RULES = [
     name: "Github",
     outbound: "🐱 Github",
     site_rules: ["github", "gitlab"],
+    ip_rules: []
+  },
+  {
+    name: "Cloud Services",
+    outbound: "☁️ 云服务",
+    site_rules: ["aws", "azure", "digitalocean", "heroku", "dropbox"],
     ip_rules: []
   },
   {
@@ -100,12 +109,6 @@ export const UNIFIED_RULES = [
     ip_rules: []
   },
   {
-    name: "Cloud Services",
-    outbound: "☁️ 云服务",
-    site_rules: ["aws", "azure", "digitalocean", "heroku", "dropbox"],
-    ip_rules: []
-  },
-  {
     name: "Non-China",
     outbound: "🌐 非中国",
     site_rules: ["geolocation-!cn"],
@@ -114,7 +117,13 @@ export const UNIFIED_RULES = [
 ];
 export const BUILTIN_OUTBOUNDS = ["DIRECT", "REJECT"];
 
-export const DIRECT_DEFAULT_OUTBOUNDS = UNIFIED_RULES.filter((rule) => rule.default_direct).map((rule) => rule.outbound);
+const DEFAULT_OUTBOUND_BY_GROUP = Object.fromEntries(UNIFIED_RULES.filter((rule) => rule.default_outbound).map((rule) => [rule.outbound, rule.default_outbound]));
+
+// 分类策略组成员：默认跟随 🚀 节点选择；声明了 default_outbound 的放到首位（select 默认选首项）
+export function groupMembers(outbound, proxyList) {
+  const first = DEFAULT_OUTBOUND_BY_GROUP[outbound];
+  return first ? [first, "🚀 节点选择", ...proxyList.filter((p) => p !== first)] : ["🚀 节点选择", ...proxyList];
+}
 
 const RULE_NAMES = UNIFIED_RULES.map((rule) => rule.name);
 const inUnifiedOrder = (names) => RULE_NAMES.filter((name) => names.includes(name));

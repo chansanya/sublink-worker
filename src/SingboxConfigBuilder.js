@@ -1,4 +1,4 @@
-import { SING_BOX_CONFIG, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules, generateRuleSets } from "./config.js";
+import { SING_BOX_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, getOutbounds, generateRules, generateRuleSets } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -31,9 +31,7 @@ export class ConfigBuilder extends BaseConfigBuilder {
         this.config.outbounds.push({
           type: "selector",
           tag: outbound,
-          outbounds: DIRECT_DEFAULT_OUTBOUNDS.includes(outbound)
-            ? ["DIRECT", "🚀 节点选择", ...proxyList.filter((p) => p !== "DIRECT")]
-            : ["🚀 节点选择", ...proxyList]
+          outbounds: groupMembers(outbound, proxyList)
         });
       } else {
         this.config.outbounds.unshift({

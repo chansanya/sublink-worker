@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { CLASH_CONFIG, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules } from "./config.js";
+import { CLASH_CONFIG, BUILTIN_OUTBOUNDS, groupMembers, getOutbounds, generateRules } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -38,9 +38,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
         this.config["proxy-groups"].push({
           type: "select",
           name: outbound,
-          proxies: DIRECT_DEFAULT_OUTBOUNDS.includes(outbound)
-            ? ["DIRECT", "🚀 节点选择", ...proxyList.filter((p) => p !== "DIRECT")]
-            : ["🚀 节点选择", ...proxyList]
+          proxies: groupMembers(outbound, proxyList)
         });
       } else {
         this.config["proxy-groups"].unshift({
