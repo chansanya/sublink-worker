@@ -1,4 +1,3 @@
-import yaml from "js-yaml";
 import { PREDEFINED_RULE_SETS, UNIFIED_RULES, GEOSITE_LIST_BASE_URL } from "./config.js";
 import { GenerateWebPath, decodeBase64, encodeBase64 } from "./utils.js";
 import { ConfigBuilder } from "./SingboxConfigBuilder.js";
@@ -53,19 +52,11 @@ async function handleRequest(request, env) {
         console.error("Error parsing customRules:", error);
         customRules = [];
       }
-      const configId = url.searchParams.get("configId");
-      let baseConfig;
-      if (configId) {
-        const customConfig = await env.SUBLINK_KV.get(configId);
-        if (customConfig) {
-          baseConfig = JSON.parse(customConfig);
-        }
-      }
       let configBuilder;
       if (url.pathname.startsWith("/singbox")) {
-        configBuilder = new ConfigBuilder(inputString, selectedRules, customRules, pin, baseConfig);
+        configBuilder = new ConfigBuilder(inputString, selectedRules, customRules, pin);
       } else {
-        configBuilder = new ClashConfigBuilder(inputString, selectedRules, customRules, pin, baseConfig);
+        configBuilder = new ClashConfigBuilder(inputString, selectedRules, customRules, pin);
       }
       const config = await configBuilder.build();
       return new Response(
@@ -153,36 +144,6 @@ async function handleRequest(request, env) {
       return new Response(encodeBase64(finalString), {
         headers: { "content-type": "application/json; charset=utf-8" }
       });
-    } else if (url.pathname === "/config") {
-      const { type, content } = await request.json();
-      const configId = `${type}_${GenerateWebPath(8)}`;
-      try {
-        let configString;
-        if (type === "clash") {
-          if (typeof content === "string" && (content.trim().startsWith("-") || content.includes(":"))) {
-            const yamlConfig = yaml.load(content);
-            configString = JSON.stringify(yamlConfig);
-          } else {
-            configString = typeof content === "object" ? JSON.stringify(content) : content;
-          }
-        } else {
-          configString = typeof content === "object" ? JSON.stringify(content) : content;
-        }
-        JSON.parse(configString);
-        await env.SUBLINK_KV.put(configId, configString, {
-          expirationTtl: 60 * 60 * 24 * 30
-          // 30 days
-        });
-        return new Response(configId, {
-          headers: { "Content-Type": "text/plain" }
-        });
-      } catch (error) {
-        console.error("Config validation error:", error);
-        return new Response("Invalid format: " + error.message, {
-          status: 400,
-          headers: { "Content-Type": "text/plain" }
-        });
-      }
     }
     return new Response("Not Found", { status: 404 });
   } catch (error) {

@@ -95,15 +95,14 @@
   function loadState() {
     const base = {
       input: "", preset: "minimal", selected: [], order: [], pin: false, customRules: [],
-      baseType: "singbox", baseConfig: "", configId: "", shortCode: "", savedPaths: [], short: null, tab: "clash"
+      shortCode: "", savedPaths: [], short: null, tab: "clash"
     };
     let saved = null;
     try {
       saved = JSON.parse(localStorage.getItem(STORE_KEY));
     } catch {}
     const s = saved ? { ...base, ...saved } : migrateLegacy(base);
-    const urlConfigId = new URLSearchParams(location.search).get("configId");
-    if (urlConfigId) s.configId = urlConfigId;
+    ["baseType", "baseConfig", "configId"].forEach((key) => delete s[key]);
     s.customRules = s.customRules.map((r) => ({ ...newRule(), ...r }));
     return s;
   }
@@ -119,8 +118,6 @@
     };
     s.input = ls.getItem("inputTextarea") || "";
     s.pin = ls.getItem("crpinToggle") === "true";
-    s.baseConfig = ls.getItem("configEditor") || "";
-    if (ls.getItem("configType") === "clash") s.baseType = "clash";
     s.savedPaths = parse("savedCustomPaths", []);
     const legacyPreset = ls.getItem("predefinedRules");
     const legacySelected = parse("selectedRules", []);
@@ -168,13 +165,12 @@
 
   function buildUrls(input, origin = location.origin) {
     const selectedRules = state.preset === "custom" ? effectiveSelected() : state.preset;
-    const configParam = state.configId ? `&configId=${state.configId}` : "";
     const config = encodeURIComponent(input);
     const rules = `&selectedRules=${encodeURIComponent(JSON.stringify(selectedRules))}&customRules=${encodeURIComponent(JSON.stringify(customRulesParam()))}&pin=${state.pin}`;
     return {
-      xray: `${origin}/xray?config=${config}${configParam}`,
-      singbox: `${origin}/singbox?config=${config}${rules}${configParam}`,
-      clash: `${origin}/clash?config=${config}${rules}${configParam}`
+      xray: `${origin}/xray?config=${config}`,
+      singbox: `${origin}/singbox?config=${config}${rules}`,
+      clash: `${origin}/clash?config=${config}${rules}`
     };
   }
 
@@ -693,64 +689,6 @@
     });
   }
 
-  // ---------- 04 base config ----------
-  function renderBase() {
-    $$("#baseTypeSwitch button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.type === state.baseType)));
-    $("#baseMeta").textContent = state.configId ? `已启用 · ${state.configId}` : "未启用";
-  }
-
-  function setUrlConfigId(id) {
-    const url = new URL(location.href);
-    id ? url.searchParams.set("configId", id) : url.searchParams.delete("configId");
-    history.pushState({}, "", url);
-  }
-
-  function bindBase() {
-    if (state.configId) $("#baseBlock").open = true;
-    $("#baseTypeSwitch").addEventListener("click", (e) => {
-      const type = e.target.closest("button")?.dataset.type;
-      if (!type) return;
-      state.baseType = type;
-      renderBase();
-      persist();
-    });
-    $("#baseConfig").addEventListener("input", (e) => {
-      state.baseConfig = e.target.value;
-      persist();
-    });
-    $("#saveBase").addEventListener("click", async (e) => {
-      const btn = e.currentTarget;
-      if (!state.baseConfig.trim()) return toast("底板配置为空", true);
-      btn.disabled = true;
-      try {
-        const res = await fetch(`/config?type=${state.baseType}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: state.baseType, content: state.baseConfig })
-        });
-        const text = await res.text();
-        if (!res.ok) throw new Error(text);
-        state.configId = text;
-        setUrlConfigId(text);
-        renderBase();
-        changed();
-        toast("底板已保存并启用");
-      } catch (err) {
-        toast(err.message || "保存失败", true);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-    $("#clearBase").addEventListener("click", () => {
-      state.configId = "";
-      state.baseConfig = "";
-      $("#baseConfig").value = "";
-      setUrlConfigId("");
-      renderBase();
-      changed();
-    });
-  }
-
   // ---------- preview ----------
   const RULE_RE = /^(DOMAIN-SUFFIX|DOMAIN-KEYWORD|DOMAIN-REGEX|DOMAIN|GEOSITE|GEOIP|IP-CIDR6?|IP-ASN|SRC-IP-CIDR|DST-PORT|SRC-PORT|PROCESS-NAME|RULE-SET|MATCH)(,.*)?$/;
   const span = (cls, s) => `<span class="${cls}">${escText(s)}</span>`;
@@ -1038,10 +976,10 @@
   // ---------- boot ----------
   async function boot() {
     state = loadState();
+    persist();
     hydrateIcons();
     $("#input").value = state.input;
     $("#pinToggle").checked = state.pin;
-    $("#baseConfig").value = state.baseConfig;
     $("#input").addEventListener("input", (e) => {
       state.input = e.target.value;
       renderNodes();
@@ -1050,11 +988,9 @@
     bindTheme();
     bindRules();
     bindCustomRules();
-    bindBase();
     bindPreview();
     bindLinks();
     renderNodes();
-    renderBase();
     renderTabs();
     renderSavedPaths();
     renderCustomRules();

@@ -66,26 +66,6 @@
         <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加规则</button>
         <p class="block-foot">多个值可用逗号、空格或回车分隔。出站填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝，不新建策略组。</p>
       </section>
-
-      <details class="block block-collapsible" id="baseBlock">
-        <summary class="block-head">
-          <span class="block-index">04</span>
-          <h2>底板配置</h2>
-          <span class="badge">实验性</span>
-          <span class="block-meta" id="baseMeta"></span>
-          <i data-icon="chevron-down" class="summary-chevron"></i>
-        </summary>
-        <div class="segmented segmented-sm" id="baseTypeSwitch" role="radiogroup" aria-label="底板类型">
-          <button type="button" role="radio" data-type="singbox">sing-box · JSON</button>
-          <button type="button" role="radio" data-type="clash">Clash · YAML</button>
-        </div>
-        <textarea id="baseConfig" class="code-input" rows="8" spellcheck="false" placeholder="粘贴完整的底板配置。保存后作为生成配置的起点（rules 会被覆盖）。"></textarea>
-        <div class="actions">
-          <button type="button" class="btn btn-primary" id="saveBase"><i data-icon="save"></i>保存并启用</button>
-          <button type="button" class="btn btn-ghost" id="clearBase"><i data-icon="eraser"></i>清除</button>
-        </div>
-        <p class="block-foot">底板存储 30 天后过期，过期后订阅会回退到默认底板。</p>
-      </details>
     </section>
 
     <section class="pane pane-output" aria-label="输出">

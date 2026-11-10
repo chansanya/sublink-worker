@@ -3,11 +3,8 @@ import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
 export class ConfigBuilder extends BaseConfigBuilder {
-  constructor(inputString, selectedRules, customRules, pin, baseConfig) {
-    if (baseConfig === void 0) {
-      baseConfig = SING_BOX_CONFIG;
-    }
-    super(inputString, baseConfig);
+  constructor(inputString, selectedRules, customRules, pin) {
+    super(inputString, SING_BOX_CONFIG);
     this.selectedRules = selectedRules;
     this.customRules = customRules;
     this.pin = pin;

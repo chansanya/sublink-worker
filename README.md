@@ -12,7 +12,6 @@
 - 自定义规则：Geo-Site / Geo-IP / 域名后缀 / 关键词 / IP CIDR / 协议，可置顶；出站填 `DIRECT` / `REJECT` 时直接直连 / 拒绝
 - 编辑即预览：右侧实时显示生成的配置文件，高亮变化行，按段落跳转
 - 订阅短链（可自定义路径，配置改动后原路径覆盖更新）、二维码
-- 自定义底板配置（实验性）
 
 ## 一键部署
 
@@ -58,7 +57,6 @@ npm run dev        # http://localhost:8787
 | `/c/:code` `/b/:code` `/x/:code` | 短链，分别跳转到上面三种 |
 | `GET /api/rules` | 规则分类与预设 |
 | `GET /api/geosite/:name` | 分类的域名名单（来自 MetaCubeX，已展开，缓存 1 天） |
-| `POST /config` | 保存自定义底板，返回 `configId`，30 天过期 |
 
 ## 文档
 

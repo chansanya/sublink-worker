@@ -5,7 +5,7 @@ const NAMES = [
   "shield-ban", "bot", "tv", "play", "search", "house", "map-pin", "send", "git-branch", "monitor",
   "apple", "users", "clapperboard", "gamepad-2", "graduation-cap", "wallet", "cloud", "globe",
   "sun", "moon", "copy", "check", "qr-code", "link", "plus", "trash-2", "chevron-down", "arrow-up",
-  "arrow-down", "pin", "loader-circle", "circle-alert", "scissors", "save", "eraser", "x", "layers",
+  "arrow-down", "pin", "loader-circle", "circle-alert", "scissors", "x", "layers",
   "waypoints", "file-code-2", "circle-help", "server", "list-filter", "corner-down-right", "history", "grip-vertical"
 ];
 
