@@ -1278,7 +1278,6 @@
     renderSavedPaths();
     renderQuickRules();
     renderCustomRules();
-    $("#advancedRules").open = state.customRules.length > 0;
     renderLinks();
     try {
       meta = await (await fetch("/api/rules")).json();
