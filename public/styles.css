@@ -234,8 +234,14 @@ h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
 .rule-grip .icon { width: 14px; height: 14px; }
 .rule-tile:hover .rule-grip { opacity: 1; }
 .rule-grip:active { cursor: grabbing; }
-.rule-tile-rank { width: 16px; font: 11px/1 var(--font-mono); color: var(--accent-fg); text-align: right; }
-.rule-tile[aria-pressed="false"] .rule-tile-rank { color: var(--text-3); opacity: 0.4; }
+/* 角落数字：序号左上、域名数右上，绝对定位不占水平空间；序号不拦截指针，拖动手柄照常可用 */
+.rule-tile-rank, .rule-tile-count {
+  position: absolute; top: 4px;
+  font: 10px/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.rule-tile-rank { left: 7px; color: var(--accent-fg); pointer-events: none; }
+.rule-tile-count { right: 8px; color: var(--text-3); }
 .rule-tile.is-dragging { opacity: 0.3; border-style: dashed; transform: none; }
 .rule-tile-ghost {
   position: fixed; z-index: 40; margin: 0;
@@ -252,14 +258,12 @@ h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
   transition: background 0.15s, color 0.15s;
 }
 .rule-tile-text { display: flex; flex-direction: column; min-width: 0; }
-.rule-tile-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rule-tile-sub { display: flex; gap: 6px; min-width: 0; font: 11px/1.3 var(--font-mono); color: var(--text-3); white-space: nowrap; }
-.rule-tile-en { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.rule-tile-count { flex: none; color: var(--text-2); }
-.rule-tile-count::before { content: "·"; margin-right: 6px; color: var(--text-3); }
+.rule-tile-name { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; white-space: nowrap; }
+.rule-tile-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.rule-tile-sub { font: 11px/1.3 var(--font-mono); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rule-tile-badge {
-  position: absolute; top: 6px; right: 7px;
-  font-size: 10px; line-height: 1; padding: 3px 5px; border-radius: 4px;
+  flex: none;
+  font-size: 10px; line-height: 1; padding: 2px 4px; border-radius: 4px;
   color: var(--text-3); background: var(--surface-3);
 }
 .rule-tile-badge.is-reject { color: var(--danger); background: var(--danger-soft); }
@@ -545,5 +549,5 @@ h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
   .link-name, .short-label { grid-column: 1 / -1; }
   .saved-paths { padding-left: 0; }
   .quick { display: none; }
-  .rule-tile-en, .rule-tile-count::before { display: none; }
+  .rule-tile-sub { display: none; }
 }

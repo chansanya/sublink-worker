@@ -213,13 +213,13 @@
         return `
         <button type="button" class="rule-tile${conflicts.has(r.name) ? " has-conflict" : ""}" data-rule="${esc(r.name)}" aria-pressed="${selected.has(r.name)}">
           <span class="rule-grip" data-grip title="拖动排序">${icon("grip-vertical")}</span>
-          <span class="rule-tile-rank">${selected.has(r.name) ? String(selectedList.indexOf(r.name) + 1).padStart(2, "0") : ""}</span>
+          ${selected.has(r.name) ? `<span class="rule-tile-rank" title="匹配优先级">${String(selectedList.indexOf(r.name) + 1).padStart(2, "0")}</span>` : ""}
+          ${count === undefined ? "" : `<span class="rule-tile-count" title="${count} 个域名">${formatCount(count)}</span>`}
           <span class="rule-tile-icon">${icon(RULE_ICONS[r.name] || "layers")}</span>
           <span class="rule-tile-text">
-            <span class="rule-tile-name">${esc(stripEmoji(r.outbound))}</span>
-            <span class="rule-tile-sub"><span class="rule-tile-en">${esc(r.name)}</span>${count === undefined ? "" : `<span class="rule-tile-count" title="${count} 个域名">${formatCount(count)}</span>`}</span>
+            <span class="rule-tile-name"><span class="rule-tile-label">${esc(stripEmoji(r.outbound))}</span>${badge ? `<span class="rule-tile-badge${badge[1]}">${badge[0]}</span>` : ""}</span>
+            <span class="rule-tile-sub">${esc(r.name)}</span>
           </span>
-          ${badge ? `<span class="rule-tile-badge${badge[1]}">${badge[0]}</span>` : ""}
         </button>`;
       })
       .join("");
