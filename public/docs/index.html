@@ -542,20 +542,31 @@ https://your-domain.workers.dev/x/my-node</code></pre>
 
   <script src="./icons.js"></script>
   <script>
+    const ICON_ATTRS = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+
+    function icon(name, cls = "") {
+      const node = window.ICONS?.[name];
+      if (!node) return "";
+      const inner = node.map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).map(([k, v]) => `${k}="${v}"`).join(" ")}/>`).join("");
+      return `<svg class="icon ${cls}" ${ICON_ATTRS}>${inner}</svg>`;
+    }
+
+    function hydrateIcons(root = document) {
+      root.querySelectorAll("i[data-icon]").forEach((el) => {
+        el.outerHTML = icon(el.dataset.icon, el.className);
+      });
+    }
+
     // Theme toggle
     const themeToggle = document.getElementById("themeToggle");
-    const updateThemeIcon = (theme) => {
-      const icon = themeToggle.querySelector(".icon") || themeToggle.querySelector("i");
-      if (icon) {
-        icon.setAttribute("data-icon", theme === "dark" ? "moon" : "sun");
-      }
+    const paintThemeBtn = () => {
+      themeToggle.innerHTML = icon(document.documentElement.dataset.theme === "dark" ? "moon" : "sun");
     };
     themeToggle.addEventListener("click", () => {
       const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
       document.documentElement.dataset.theme = next;
       localStorage.setItem("theme", next);
-      updateThemeIcon(next);
-      if (window.hydrateIcons) window.hydrateIcons(themeToggle);
+      paintThemeBtn();
     });
 
     // Copy buttons
@@ -572,13 +583,10 @@ https://your-domain.workers.dev/x/my-node</code></pre>
       btn.addEventListener("click", () => {
         const code = btn.closest(".code-block").querySelector("code").innerText;
         navigator.clipboard.writeText(code).then(() => {
-          const originalText = btn.innerHTML;
-          btn.innerHTML = `<i data-icon="check"></i><span>已复制</span>`;
-          if (window.hydrateIcons) window.hydrateIcons(btn);
+          btn.innerHTML = `${icon("check")}<span>已复制</span>`;
           showToast("代码已复制到剪贴板");
           setTimeout(() => {
-            btn.innerHTML = originalText;
-            if (window.hydrateIcons) window.hydrateIcons(btn);
+            btn.innerHTML = `${icon("copy")}<span>复制</span>`;
           }, 2000);
         });
       });
@@ -601,30 +609,9 @@ https://your-domain.workers.dev/x/my-node</code></pre>
       });
     }, { passive: true });
 
-    // Hydrate Lucide Icons
-    if (window.ICONS) {
-      function hydrate(root = document) {
-        root.querySelectorAll("i[data-icon]").forEach((el) => {
-          const name = el.dataset.icon;
-          const node = window.ICONS[name];
-          if (!node) return;
-          const [tag, attrs, children] = node;
-          const svg = document.createElementNS("http://www.w3.org/2000/svg", tag);
-          for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
-          svg.setAttribute("class", "icon");
-          for (const [cTag, cAttrs] of children || []) {
-            const child = document.createElementNS("http://www.w3.org/2000/svg", cTag);
-            for (const [k, v] of Object.entries(cAttrs)) child.setAttribute(k, v);
-            svg.appendChild(child);
-          }
-          el.replaceWith(svg);
-        });
-      }
-      window.hydrateIcons = hydrate;
-      hydrate();
-      updateThemeIcon(document.documentElement.dataset.theme);
-      hydrate(themeToggle);
-    }
+    // Initial hydration
+    hydrateIcons();
+    paintThemeBtn();
   </script>
 </body>
 </html>
