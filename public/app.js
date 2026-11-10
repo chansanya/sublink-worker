@@ -94,7 +94,7 @@
 
   function loadState() {
     const base = {
-      input: "", preset: "minimal", selected: [], order: [], pin: false, customRules: [],
+      input: "", preset: "minimal", selected: [], order: [], pin: true, customRules: [],
       shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: true
     };
     let saved = null;
@@ -117,7 +117,7 @@
       }
     };
     s.input = ls.getItem("inputTextarea") || "";
-    s.pin = ls.getItem("crpinToggle") === "true";
+    if (ls.getItem("crpinToggle") !== null) s.pin = ls.getItem("crpinToggle") === "true";
     s.savedPaths = parse("savedCustomPaths", []);
     const legacyPreset = ls.getItem("predefinedRules");
     const legacySelected = parse("selectedRules", []);
