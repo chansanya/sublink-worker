@@ -30,7 +30,7 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 - `GET /`：静态资源 `public/index.html`，不经过 Worker
 - `GET /api/rules`：前端用的规则分类与预设数据（来自 `UNIFIED_RULES` / `PREDEFINED_RULE_SETS`，含 `site_rules`、`default_outbound`）
 - `GET /api/geosite/:name`：代理 MetaCubeX 已展开 include 的纯文本名单（`GEOSITE_LIST_BASE_URL`，与 Clash 的 geosite.dat 同源），边缘缓存 1 天；不存在返回 404。供前端在线分析，每次请求只产生 1 个子请求
-- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，逗号分隔）、`pin`
+- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，可选 `domain`（完整域名，Clash `DOMAIN` / sing-box `domain`，仅有值时才输出），逗号分隔）、`pin`
 - `/xray`：拉取并合并订阅，输出 base64
 - `/shorten`（旧，存完整 URL，`/s/:code` 跳转）、`/shorten-v2`（存 query string，`/b/` `/c/` `/x/` 分别跳转到 singbox / clash / xray）
 
@@ -38,10 +38,11 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 
 原生 HTML/CSS/JS，无构建步骤。`app.js` 是单个 IIFE：状态整体存于 localStorage `sublink:v2`（首次加载会迁移旧版键 `inputTextarea` 等），规则分类卡片可拖动排序（`bindRuleDrag`，pointer events + FLIP），顺序存于 `state.order`，自定义模式下 `effectiveSelected()` 按它过滤出有序数组；预设模式按固定顺序展示。任何改动经 `changed()` 触发持久化、刷新链接并防抖请求 `/clash` 等接口生成实时预览——预览与真实订阅走同一份后端代码。
 
-- **订阅链接格式必须与旧版逐字节兼容**（`buildUrls`）：`selectedRules` 为预设名字符串或规则名数组，`customRules` 为逗号拼接的字符串字段。改动会导致已分发的链接与新生成的不一致。
+- **订阅链接格式必须与旧版逐字节兼容**（`buildUrls`）：`selectedRules` 为预设名字符串或规则名数组，`customRules` 为逗号拼接的字符串字段，`domain` 仅在非空时追加在末尾（`ruleParam`）。改动会导致已分发的链接与新生成的不一致。
 - 图标是 `scripts/build-icons.mjs` 从 lucide 导出的子集（`window.ICONS`），HTML 中写 `<i data-icon="name">`，由 `hydrateIcons` 替换为 SVG；界面不使用 emoji，规则组名里的 emoji 用 `stripEmoji` 去掉后展示。
 - qrcode-generator 从 jsDelivr 异步加载，二维码功能需判断全局 `qrcode` 是否就绪。
 - 在线分析（`analyzeRules`）：启动后经 `/api/geosite` 拉取全部分类名单，在浏览器计算域名数与两两覆盖率。`ruleConflicts` 判定冲突需同时满足：A 排在 B 后、A 被 B 覆盖的比例高于反向（排除两者只是共享一块，如云服务/微软共享 Azure）、比例 ≥ `CONFLICT_RATIO` 或被截走数 ≥ `CONFLICT_HITS`（照顾广告这类横跨国内外的分类）。自定义规则的 Geo-Site 名称用同一接口校验是否存在（`validateSites`）。
+- 自定义规则分两层：`state.quickRules`（快捷规则，`{ action: DIRECT|REJECT, type: domain|domain_suffix|ip_cidr, values }`，提交时经 `normalizeQuickValue` 规范化、`isValidQuickValue` 校验，非法值标红且不写入订阅）与 `state.customRules`（高级规则，完整表单，位于默认折叠的 `<details id="advancedRules">`）。`customRulesParam` 先输出快捷后输出高级；旧状态由 `migrateQuickRules` 把开头连续的、只含一种快捷匹配的 DIRECT/REJECT 规则转成快捷行（不改变匹配顺序）。标签输入的键盘行为在 `bindTokenInputs` 中两层共用。
 - 推荐排序（`recommendedOrder`）：广告最前，纯 IP 分类（无域名数据）其次，其余按 `isContained` 拓扑排序、同层按域名数升序，大合集自然落到最后；与冲突检测共用 `isContained`，保证结果零冲突。需在线分析完成后才可用。
 - 预览在右侧抽屉（`<html data-drawer>`，首屏由 `index.html` 内联脚本提前设置以免闪动）：大屏为 grid 列宽过渡，窄屏（≤1080px）为浮层并总是从收起开始。抽屉收起时 `runPreview` 只标记 `preview.stale`，不发请求，打开时再生成。订阅链接在配置区第 04 块，不随抽屉收起。
 - 显式点「自定义」恢复上次的勾选与顺序；在预设下直接点卡片、拖动或点修正按钮，则经 `enterCustom` 从该预设开始自定义。

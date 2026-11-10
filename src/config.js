@@ -166,6 +166,7 @@ export function getOutbounds(selectedRules) {
 const splitList = (value) => (value ? value.split(",").map((item) => item.trim()).filter(Boolean) : []);
 
 const toRouteRule = (rule) => ({
+  domain: splitList(rule.domain),
   site_rules: splitList(rule.site),
   ip_rules: splitList(rule.ip),
   domain_suffix: splitList(rule.domain_suffix),

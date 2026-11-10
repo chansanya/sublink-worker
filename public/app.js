@@ -20,10 +20,18 @@
   const FIELDS = [
     { key: "site", label: "Geo-Site", placeholder: "google, category-ai-!cn", hint: "域名分类名，需同时存在于 v2fly 域名名单与 sing-box 规则集仓库" },
     { key: "ip", label: "Geo-IP", placeholder: "private, cn, telegram", hint: "IP 分类名，国家代码或 private、telegram 等特殊分类" },
+    { key: "domain", label: "域名", placeholder: "www.example.com", hint: "完整域名精确匹配，不含子域名" },
     { key: "domain_suffix", label: "域名后缀", placeholder: "example.com", hint: "匹配该域名及其所有子域名" },
     { key: "domain_keyword", label: "域名关键词", placeholder: "openai", hint: "域名包含该关键词即匹配" },
     { key: "ip_cidr", label: "IP CIDR", placeholder: "10.0.0.0/8", hint: "IP 段" },
     { key: "protocol", label: "协议", placeholder: "bittorrent, dns", hint: "仅 sing-box 生效，且与同一条规则的其他条件为「并且」关系" }
+  ];
+  // 快捷规则：只对域名 / 域名后缀 / IP 段做直连或拒绝
+  const QUICK_ACTIONS = [["DIRECT", "直连"], ["REJECT", "拒绝"]];
+  const QUICK_TYPES = [
+    ["domain", "域名", "www.example.com"],
+    ["domain_suffix", "域名后缀", "example.com"],
+    ["ip_cidr", "IP 段", "10.0.0.0/8 或 1.2.3.4"]
   ];
   const ICON_ATTRS = 'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
 
@@ -89,12 +97,26 @@
 
   // ---------- state ----------
   function newRule() {
-    return { id: uid(), name: "", site: [], ip: [], domain_suffix: [], domain_keyword: [], ip_cidr: [], protocol: [], open: true };
+    return { id: uid(), name: "", site: [], ip: [], domain: [], domain_suffix: [], domain_keyword: [], ip_cidr: [], protocol: [], open: true };
+  }
+
+  // 旧版只有高级规则：把排在最前、只含一种快捷匹配方式的 DIRECT/REJECT 规则转成快捷行。
+  // 只转换开头连续的一段，快捷规则始终排在高级规则之前，因此匹配顺序不变
+  function migrateQuickRules(s) {
+    const quickKeys = QUICK_TYPES.map(([key]) => key);
+    const quick = [];
+    for (const r of s.customRules) {
+      const filled = FIELDS.map((f) => f.key).filter((key) => r[key].length);
+      if (!BUILTIN.includes(r.name.trim()) || filled.length !== 1 || !quickKeys.includes(filled[0])) break;
+      quick.push({ id: r.id, action: r.name.trim(), type: filled[0], values: [...r[filled[0]]] });
+    }
+    s.quickRules = quick;
+    s.customRules = s.customRules.slice(quick.length);
   }
 
   function loadState() {
     const base = {
-      input: "", preset: "minimal", selected: [], order: [], pin: true, customRules: [],
+      input: "", preset: "minimal", selected: [], order: [], pin: true, quickRules: [], customRules: [],
       shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: true
     };
     let saved = null;
@@ -104,6 +126,7 @@
     const s = saved ? { ...base, ...saved } : migrateLegacy(base);
     ["baseType", "baseConfig", "configId"].forEach((key) => delete s[key]);
     s.customRules = s.customRules.map((r) => ({ ...newRule(), ...r }));
+    if (!Array.isArray(saved?.quickRules)) migrateQuickRules(s);
     return s;
   }
 
@@ -151,18 +174,28 @@
   }
 
   // ---------- subscription urls (format must stay compatible with existing links) ----------
+  // 键顺序与旧版一致，domain 仅在有值时追加，保证不含 domain 的规则生成的链接与旧版逐字节相同
+  function ruleParam(r) {
+    const out = {
+      site: r.site.join(","),
+      ip: r.ip.join(","),
+      name: r.name.trim(),
+      domain_suffix: r.domain_suffix.join(","),
+      domain_keyword: r.domain_keyword.join(","),
+      ip_cidr: r.ip_cidr.join(","),
+      protocol: r.protocol.join(",")
+    };
+    if (r.domain.length) out.domain = r.domain.join(",");
+    return out;
+  }
+
+  // 快捷规则在前、高级规则在后；快捷行只写入格式合法的值，没有有效值的行跳过
   function customRulesParam() {
-    return state.customRules
-      .filter((r) => r.name.trim())
-      .map((r) => ({
-        site: r.site.join(","),
-        ip: r.ip.join(","),
-        name: r.name.trim(),
-        domain_suffix: r.domain_suffix.join(","),
-        domain_keyword: r.domain_keyword.join(","),
-        ip_cidr: r.ip_cidr.join(","),
-        protocol: r.protocol.join(",")
-      }));
+    const quick = state.quickRules
+      .map((q) => [q, q.values.filter((v) => isValidQuickValue(q.type, v))])
+      .filter(([, values]) => values.length)
+      .map(([q, values]) => ({ ...newRule(), name: q.action, [q.type]: values }));
+    return [...quick, ...state.customRules.filter((r) => r.name.trim())].map(ruleParam);
   }
 
   function buildUrls(input, origin = location.origin) {
@@ -532,8 +565,15 @@
   }
 
   const isMissingSite = (field, v) => field === "site" && geo.status.get(v) === "missing";
-  const tokensHtml = (values, newFrom = Infinity, field = "") =>
-    values.map((v, i) => `<span class="token${i >= newFrom ? " is-new" : ""}${isMissingSite(field, v) ? " is-bad" : ""}"${isMissingSite(field, v) ? ' title="名单不存在"' : ""}>${esc(v)}<button type="button" data-act="untoken" data-index="${i}" aria-label="移除 ${esc(v)}">${icon("x")}</button></span>`).join("");
+  const siteProblem = (field) => (v) => (isMissingSite(field, v) ? "名单不存在" : "");
+  // problem(v) 返回非空说明时，该标签标红并以说明作为提示
+  const tokensHtml = (values, newFrom = Infinity, problem = () => "") =>
+    values
+      .map((v, i) => {
+        const bad = problem(v);
+        return `<span class="token${i >= newFrom ? " is-new" : ""}${bad ? " is-bad" : ""}"${bad ? ` title="${esc(bad)}"` : ""}>${esc(v)}<button type="button" data-act="untoken" data-index="${i}" aria-label="移除 ${esc(v)}">${icon("x")}</button></span>`;
+      })
+      .join("");
 
   function ruleCardHtml(r, i, total) {
     return `
@@ -555,7 +595,7 @@
           ${FIELDS.map((f) => `
             <div class="field">
               <span class="field-label">${f.label}<span title="${esc(f.hint)}">${icon("circle-help")}</span></span>
-              <div class="tokens" data-field="${f.key}">${tokensHtml(r[f.key], Infinity, f.key)}<input type="text" data-role="token" placeholder="${esc(f.placeholder)}" aria-label="${f.label}" autocomplete="off" spellcheck="false"></div>
+              <div class="tokens" data-field="${f.key}">${tokensHtml(r[f.key], Infinity, siteProblem(f.key))}<input type="text" data-role="token" placeholder="${esc(f.placeholder)}" aria-label="${f.label}" autocomplete="off" spellcheck="false"></div>
             </div>`).join("")}
         </div>
         <footer class="rule-card-foot" data-role="foot"></footer>
@@ -565,6 +605,7 @@
   function renderCustomRules() {
     const total = state.customRules.length;
     $("#customList").innerHTML = state.customRules.map((r, i) => ruleCardHtml(r, i, total)).join("");
+    $("#advancedCount").textContent = total ? String(total) : "";
     refreshRuleFeet();
     validateSites(state.customRules.flatMap((r) => r.site));
   }
@@ -584,7 +625,7 @@
       const card = $(`.rule-card[data-id="${r.id}"]`);
       if (!card) return;
       const name = r.name.trim();
-      const clashCount = r.site.length + r.ip.length + r.domain_suffix.length + r.domain_keyword.length + r.ip_cidr.length;
+      const clashCount = r.domain.length + r.site.length + r.ip.length + r.domain_suffix.length + r.domain_keyword.length + r.ip_cidr.length;
       let warn = "";
       if (!name) warn = "填写出站后才会生成规则";
       else if (issues.dup.has(name)) warn = `出站「${name}」重复，同名策略组会导致配置加载失败`;
@@ -607,7 +648,7 @@
   function renderTokens(container, rule, newFrom) {
     const field = container.dataset.field;
     $$(".token", container).forEach((t) => t.remove());
-    $('[data-role="token"]', container).insertAdjacentHTML("beforebegin", tokensHtml(rule[field], newFrom, field));
+    $('[data-role="token"]', container).insertAdjacentHTML("beforebegin", tokensHtml(rule[field], newFrom, siteProblem(field)));
   }
 
   function commitTokens(input, raw) {
@@ -696,54 +737,195 @@
     });
 
     list.addEventListener("input", (e) => {
-      const el = e.target;
-      if (el.dataset.role === "name") {
-        ruleOf(el).name = el.value;
-        refreshRuleFeet();
-        changed();
-      } else if (el.dataset.role === "token" && /[,，\s]/.test(el.value)) {
-        const parts = el.value.split(/[,，\s]+/);
-        const rest = parts.pop();
-        el.value = rest;
-        commitTokens(el, parts.join(","));
-      }
+      if (e.target.dataset.role !== "name") return;
+      ruleOf(e.target).name = e.target.value;
+      refreshRuleFeet();
+      changed();
     });
 
+    bindTokenInputs(list, commitTokens, (el) => {
+      const rule = ruleOf(el);
+      const container = el.closest(".tokens");
+      if (rule[container.dataset.field].pop() === undefined) return;
+      renderTokens(container, rule);
+      refreshRuleFeet();
+      changed();
+    });
+  }
+
+  // 标签输入的通用键盘行为：逗号 / 中文逗号 / 空白分隔、回车提交、空输入时退格删最后一个、粘贴批量拆分、失焦提交
+  function bindTokenInputs(list, commit, popLast) {
+    const isToken = (el) => el.dataset.role === "token";
+    list.addEventListener("input", (e) => {
+      const el = e.target;
+      if (!isToken(el) || !/[,，\s]/.test(el.value)) return;
+      const parts = el.value.split(/[,，\s]+/);
+      el.value = parts.pop();
+      commit(el, parts.join(","));
+    });
     list.addEventListener("keydown", (e) => {
       const el = e.target;
-      if (el.dataset.role !== "token" || e.isComposing) return;
+      if (!isToken(el) || e.isComposing) return;
       if (e.key === "Enter") {
         e.preventDefault();
         const value = el.value;
         el.value = "";
-        commitTokens(el, value);
+        commit(el, value);
       } else if (e.key === "Backspace" && !el.value) {
-        const rule = ruleOf(el);
-        const container = el.closest(".tokens");
-        if (rule[container.dataset.field].pop() !== undefined) {
-          renderTokens(container, rule);
-          refreshRuleFeet();
-          changed();
-        }
+        popLast(el);
       }
     });
-
     list.addEventListener("paste", (e) => {
       const el = e.target;
-      if (el.dataset.role !== "token") return;
+      if (!isToken(el)) return;
       e.preventDefault();
-      commitTokens(el, el.value + (e.clipboardData?.getData("text") || ""));
+      commit(el, el.value + (e.clipboardData?.getData("text") || ""));
       el.value = "";
     });
-
     list.addEventListener("focusout", (e) => {
       const el = e.target;
-      if (el.dataset.role === "token" && el.value.trim()) {
-        const value = el.value;
-        el.value = "";
-        commitTokens(el, value);
-      }
+      if (!isToken(el) || !el.value.trim()) return;
+      const value = el.value;
+      el.value = "";
+      commit(el, value);
     });
+  }
+
+  // ---------- 03 quick rules ----------
+  // 域名类：粘贴网址时提取主机名（含 IDN 转 punycode、去端口和路径），后缀去掉开头的 *. 或 .
+  // IP 段：裸 IP 自动补 /32 或 /128
+  function normalizeQuickValue(type, raw) {
+    let v = raw.trim();
+    if (type === "ip_cidr") {
+      const [ip, bits] = v.split("/");
+      const host = ip.includes(":") ? ip.toLowerCase() : ip;
+      return bits === undefined ? `${host}/${host.includes(":") ? 128 : 32}` : `${host}/${bits}`;
+    }
+    if (type === "domain_suffix") v = v.replace(/^(\*\.|\.)+/, "");
+    try {
+      v = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : `http://${v}`).hostname;
+    } catch {
+      return v.toLowerCase();
+    }
+    return v.replace(/\.$/, "");
+  }
+
+  const LABEL = "[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?";
+  const DOMAIN_RE = new RegExp(`^(?:${LABEL}\\.)+${LABEL}$`);
+  const SUFFIX_RE = new RegExp(`^(?:${LABEL}\\.)*${LABEL}$`);
+  const IPV4_RE = /^(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+
+  function isValidQuickValue(type, v) {
+    // 顶级域不能是纯数字，避免把 IP 当成域名
+    if (type === "domain") return DOMAIN_RE.test(v) && !/(?:^|\.)\d+$/.test(v);
+    if (type === "domain_suffix") return SUFFIX_RE.test(v) && !/(?:^|\.)\d+$/.test(v);
+    const [ip, bits, extra] = v.split("/");
+    if (extra !== undefined || !/^\d{1,3}$/.test(bits ?? "")) return false;
+    if (IPV4_RE.test(ip)) return Number(bits) <= 32;
+    if (!ip.includes(":") || Number(bits) > 128) return false;
+    try {
+      new URL(`http://[${ip}]`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  const quickProblem = (type) => (v) => (isValidQuickValue(type, v) ? "" : "格式不正确，不会写入订阅");
+  const quickOf = (el) => state.quickRules.find((q) => q.id === el.closest(".quick-row").dataset.id);
+  const selectHtml = (role, label, options, value) =>
+    `<label class="select"><select data-role="${role}" aria-label="${label}">${options.map(([v, text]) => `<option value="${v}"${v === value ? " selected" : ""}>${text}</option>`).join("")}</select>${icon("chevron-down")}</label>`;
+
+  function quickRowHtml(q) {
+    const placeholder = QUICK_TYPES.find(([key]) => key === q.type)[2];
+    return `
+      <div class="quick-row" data-id="${q.id}">
+        ${selectHtml("action", "动作", QUICK_ACTIONS, q.action)}
+        ${selectHtml("type", "匹配方式", QUICK_TYPES, q.type)}
+        <div class="tokens" data-field="values">${tokensHtml(q.values, Infinity, quickProblem(q.type))}<input type="text" data-role="token" placeholder="${esc(placeholder)}" aria-label="值" autocomplete="off" spellcheck="false"></div>
+        <button type="button" class="icon-btn" data-act="remove" aria-label="删除">${icon("trash-2")}</button>
+        <p class="quick-note" data-role="note"></p>
+      </div>`;
+  }
+
+  function refreshQuickRow(row, q, newFrom) {
+    const container = $(".tokens", row);
+    $$(".token", container).forEach((t) => t.remove());
+    $('[data-role="token"]', container).insertAdjacentHTML("beforebegin", tokensHtml(q.values, newFrom, quickProblem(q.type)));
+    const bad = q.values.filter((v) => !isValidQuickValue(q.type, v)).length;
+    const note = $('[data-role="note"]', row);
+    note.hidden = !bad;
+    note.textContent = bad ? `${bad} 个值格式不正确，已忽略` : "";
+  }
+
+  function renderQuickRules() {
+    const list = $("#quickList");
+    list.innerHTML = state.quickRules.map(quickRowHtml).join("");
+    state.quickRules.forEach((q) => refreshQuickRow($(`.quick-row[data-id="${q.id}"]`, list), q));
+  }
+
+  function bindQuickRules() {
+    const list = $("#quickList");
+
+    $("#addQuick").addEventListener("click", () => {
+      state.quickRules.push({ id: uid(), action: "DIRECT", type: "domain_suffix", values: [] });
+      renderQuickRules();
+      $$('.quick-row [data-role="token"]', list).at(-1)?.focus();
+      persist();
+    });
+
+    list.addEventListener("change", (e) => {
+      const role = e.target.dataset.role;
+      if (role !== "action" && role !== "type") return;
+      const q = quickOf(e.target);
+      q[role] = e.target.value;
+      if (role === "type") {
+        q.values = [...new Set(q.values.map((v) => normalizeQuickValue(q.type, v)))];
+        const row = e.target.closest(".quick-row");
+        $('[data-role="token"]', row).placeholder = QUICK_TYPES.find(([key]) => key === q.type)[2];
+        refreshQuickRow(row, q);
+      }
+      changed();
+    });
+
+    list.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-act]");
+      if (!btn) {
+        const tokens = e.target.closest(".tokens");
+        if (tokens && e.target === tokens) $('[data-role="token"]', tokens).focus();
+        return;
+      }
+      const q = quickOf(btn);
+      const row = btn.closest(".quick-row");
+      if (btn.dataset.act === "remove") {
+        state.quickRules.splice(state.quickRules.indexOf(q), 1);
+        renderQuickRules();
+      } else if (btn.dataset.act === "untoken") {
+        q.values.splice(Number(btn.dataset.index), 1);
+        refreshQuickRow(row, q);
+        $('[data-role="token"]', row).focus();
+      }
+      changed();
+    });
+
+    bindTokenInputs(
+      list,
+      (input, raw) => {
+        const q = quickOf(input);
+        const fresh = [...new Set(splitTokens(raw).map((v) => normalizeQuickValue(q.type, v)))].filter((v) => v && !q.values.includes(v));
+        if (!fresh.length) return;
+        const newFrom = q.values.length;
+        q.values.push(...fresh);
+        refreshQuickRow(input.closest(".quick-row"), q, newFrom);
+        changed();
+      },
+      (input) => {
+        const q = quickOf(input);
+        if (q.values.pop() === undefined) return;
+        refreshQuickRow(input.closest(".quick-row"), q);
+        changed();
+      }
+    );
   }
 
   // ---------- preview ----------
@@ -1087,13 +1269,16 @@
     bindTheme();
     bindDrawer();
     bindRules();
+    bindQuickRules();
     bindCustomRules();
     bindPreview();
     bindLinks();
     renderNodes();
     renderTabs();
     renderSavedPaths();
+    renderQuickRules();
     renderCustomRules();
+    $("#advancedRules").open = state.customRules.length > 0;
     renderLinks();
     try {
       meta = await (await fetch("/api/rules")).json();

@@ -63,6 +63,8 @@ export class ConfigBuilder extends BaseConfigBuilder {
         ...rule.site_rules.length > 0 && rule.site_rules[0] !== "" ? rule.site_rules : [],
         ...rule.ip_rules.filter((ip) => ip.trim() !== "").map((ip) => `${ip}-ip`)
       ],
+      // 仅在有值时写入，旧链接生成的 JSON 不会多出空数组
+      ...(rule.domain?.length ? { domain: rule.domain } : {}),
       domain_suffix: rule.domain_suffix,
       domain_keyword: rule.domain_keyword,
       ip_cidr: rule.ip_cidr,

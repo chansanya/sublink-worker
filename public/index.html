@@ -73,9 +73,21 @@
             <span class="switch-label"><i data-icon="pin"></i>置顶</span>
           </label>
         </header>
-        <div class="rule-list" id="customList"></div>
-        <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加规则</button>
-        <p class="block-foot">多个值可用逗号、空格或回车分隔。出站填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝，不新建策略组。</p>
+        <div class="quick-list" id="quickList"></div>
+        <button type="button" class="add-rule" id="addQuick"><i data-icon="plus"></i>添加规则</button>
+        <p class="block-foot">对指定的域名、域名后缀或 IP 段直连 / 拒绝。多个值可用逗号、空格或回车分隔；粘贴网址会自动提取域名，单个 IP 自动补全为 IP 段。</p>
+
+        <details class="advanced" id="advancedRules">
+          <summary>
+            <i data-icon="chevron-down" class="advanced-chevron"></i>
+            <span>高级规则</span>
+            <span class="advanced-count" id="advancedCount"></span>
+            <span class="advanced-hint">自定义出站、Geo-Site / Geo-IP、关键词、协议</span>
+          </summary>
+          <div class="rule-list" id="customList"></div>
+          <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加高级规则</button>
+          <p class="block-foot">出站填新名称会新建同名策略组，填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝。高级规则排在上方快捷规则之后。</p>
+        </details>
       </section>
 
       <section class="block links" id="links">

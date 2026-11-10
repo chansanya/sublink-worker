@@ -64,12 +64,13 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
   formatConfig() {
     const rules = generateRules(this.selectedRules, this.customRules, this.pin);
     this.config.rules = rules.flatMap((rule) => {
+      const domainRules = rule.domain ? rule.domain.map((domain) => `DOMAIN,${domain},${rule.outbound}`) : [];
       const siteRules = rule.site_rules[0] !== "" ? rule.site_rules.map((site) => `GEOSITE,${site},${rule.outbound}`) : [];
       const ipRules = rule.ip_rules[0] !== "" ? rule.ip_rules.map((ip) => `GEOIP,${ip},${rule.outbound}`) : [];
       const domainSuffixRules = rule.domain_suffix ? rule.domain_suffix.map((suffix) => `DOMAIN-SUFFIX,${suffix},${rule.outbound}`) : [];
       const domainKeywordRules = rule.domain_keyword ? rule.domain_keyword.map((keyword) => `DOMAIN-KEYWORD,${keyword},${rule.outbound}`) : [];
       const ipCidrRules = rule.ip_cidr ? rule.ip_cidr.map((cidr) => `IP-CIDR,${cidr},${rule.outbound}`) : [];
-      return [...siteRules, ...ipRules, ...domainSuffixRules, ...domainKeywordRules, ...ipCidrRules];
+      return [...domainRules, ...siteRules, ...ipRules, ...domainSuffixRules, ...domainKeywordRules, ...ipCidrRules];
     });
     this.config.rules.push("MATCH,🐟 漏网之鱼");
     return yaml.dump(this.config);
