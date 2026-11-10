@@ -1,4 +1,4 @@
-import { SING_BOX_CONFIG, PREDEFINED_RULE_SETS, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules, generateRuleSets } from "./config.js";
+import { SING_BOX_CONFIG, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules, generateRuleSets } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -17,14 +17,7 @@ export class ConfigBuilder extends BaseConfigBuilder {
     this.config.outbounds.push(...validItems);
   }
   addSelectors() {
-    let outbounds;
-    if (typeof this.selectedRules === "string" && PREDEFINED_RULE_SETS[this.selectedRules]) {
-      outbounds = getOutbounds(PREDEFINED_RULE_SETS[this.selectedRules]);
-    } else if (this.selectedRules && Object.keys(this.selectedRules).length > 0) {
-      outbounds = getOutbounds(this.selectedRules);
-    } else {
-      outbounds = getOutbounds(PREDEFINED_RULE_SETS.minimal);
-    }
+    const outbounds = getOutbounds(this.selectedRules);
     const proxyList = this.config.outbounds.filter((outbound) => outbound?.server != void 0).map((outbound) => outbound.tag);
     this.config.outbounds.unshift({
       type: "urltest",

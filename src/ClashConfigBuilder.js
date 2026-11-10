@@ -1,5 +1,5 @@
 import yaml from "js-yaml";
-import { CLASH_CONFIG, PREDEFINED_RULE_SETS, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules } from "./config.js";
+import { CLASH_CONFIG, BUILTIN_OUTBOUNDS, DIRECT_DEFAULT_OUTBOUNDS, getOutbounds, generateRules } from "./config.js";
 import { DeepCopy } from "./utils.js";
 import { BaseConfigBuilder } from "./BaseConfigBuilder.js";
 
@@ -21,14 +21,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     });
   }
   addSelectors() {
-    let outbounds;
-    if (typeof this.selectedRules === "string" && PREDEFINED_RULE_SETS[this.selectedRules]) {
-      outbounds = getOutbounds(PREDEFINED_RULE_SETS[this.selectedRules]);
-    } else if (this.selectedRules && Object.keys(this.selectedRules).length > 0) {
-      outbounds = getOutbounds(this.selectedRules);
-    } else {
-      outbounds = getOutbounds(PREDEFINED_RULE_SETS.minimal);
-    }
+    const outbounds = getOutbounds(this.selectedRules);
     const proxyList = this.config.proxies.map((proxy) => proxy.name);
     this.config["proxy-groups"].push({
       name: "⚡ 自动选择",

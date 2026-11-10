@@ -6,7 +6,7 @@ const NAMES = [
   "apple", "users", "clapperboard", "gamepad-2", "graduation-cap", "wallet", "cloud", "globe",
   "sun", "moon", "copy", "check", "qr-code", "link", "plus", "trash-2", "chevron-down", "arrow-up",
   "arrow-down", "pin", "loader-circle", "circle-alert", "scissors", "save", "eraser", "x", "layers",
-  "waypoints", "file-code-2", "circle-help", "server", "list-filter", "corner-down-right", "history"
+  "waypoints", "file-code-2", "circle-help", "server", "list-filter", "corner-down-right", "history", "grip-vertical"
 ];
 
 const pascal = (name) => name.replace(/(^|-)(\w)/g, (_, __, c) => c.toUpperCase());

@@ -24,7 +24,7 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 
 **Builder 模板方法**：`BaseConfigBuilder.build()` = `parseCustomItems` → `addCustomItems` → `addSelectors` → `formatConfig`。sing-box 的实现类名是 `ConfigBuilder`（不是 `SingboxConfigBuilder`）。两个 Builder 的 `addSelectors` 逻辑平行，硬编码了相同的策略组名：`🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`（兜底 final/MATCH），sing-box 额外有 `GLOBAL`；`🚀 节点选择` 首项为 `⚡ 自动选择`（即默认项）。改组名或分组逻辑必须两边同步。
 
-**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，标记 `default_direct: true` 的规则（经 `DIRECT_DEFAULT_OUTBOUNDS`）生成的组首项为 `DIRECT`，即默认直连。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。默认底板配置为 `SING_BOX_CONFIG` / `CLASH_CONFIG`，Builder 内部会 `DeepCopy`。
+**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，标记 `default_direct: true` 的规则（经 `DIRECT_DEFAULT_OUTBOUNDS`）生成的组首项为 `DIRECT`，即默认直连。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`selectedRules` 一律经 `resolveSelectedRules` 解析：预设名展开为 `UNIFIED_RULES` 固定顺序，数组则**保持传入顺序**（前端拖动排序的结果），规则与策略组都按该顺序生成。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。默认底板配置为 `SING_BOX_CONFIG` / `CLASH_CONFIG`，Builder 内部会 `DeepCopy`。
 
 **路由**：
 - `GET /`：静态资源 `public/index.html`，不经过 Worker
@@ -36,7 +36,7 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 
 ## 前端（`public/`）
 
-原生 HTML/CSS/JS，无构建步骤。`app.js` 是单个 IIFE：状态整体存于 localStorage `sublink:v2`（首次加载会迁移旧版键 `inputTextarea` 等），任何改动经 `changed()` 触发持久化、刷新链接并防抖请求 `/clash` 等接口生成实时预览——预览与真实订阅走同一份后端代码。
+原生 HTML/CSS/JS，无构建步骤。`app.js` 是单个 IIFE：状态整体存于 localStorage `sublink:v2`（首次加载会迁移旧版键 `inputTextarea` 等），规则分类卡片可拖动排序（`bindRuleDrag`，pointer events + FLIP），顺序存于 `state.order`，自定义模式下 `effectiveSelected()` 按它过滤出有序数组；预设模式按固定顺序展示。任何改动经 `changed()` 触发持久化、刷新链接并防抖请求 `/clash` 等接口生成实时预览——预览与真实订阅走同一份后端代码。
 
 - **订阅链接格式必须与旧版逐字节兼容**（`buildUrls`）：`selectedRules` 为预设名字符串或规则名数组，`customRules` 为逗号拼接的字符串字段，`configId` 不编码。改动会导致已分发的链接与新生成的不一致。
 - 图标是 `scripts/build-icons.mjs` 从 lucide 导出的子集（`window.ICONS`），HTML 中写 `<i data-icon="name">`，由 `hydrateIcons` 替换为 SVG；界面不使用 emoji，规则组名里的 emoji 用 `stripEmoji` 去掉后展示。

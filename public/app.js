@@ -89,7 +89,7 @@
 
   function loadState() {
     const base = {
-      input: "", preset: "minimal", selected: [], pin: false, customRules: [],
+      input: "", preset: "minimal", selected: [], order: [], pin: false, customRules: [],
       baseType: "singbox", baseConfig: "", configId: "", shortCode: "", savedPaths: [], short: null, tab: "clash"
     };
     let saved = null;
@@ -135,7 +135,16 @@
     }
   }
 
-  const effectiveSelected = () => (state.preset === "custom" ? state.selected : meta.presets[state.preset] || []);
+  const ruleNames = () => meta.rules.map((r) => r.name);
+  // 预设按固定顺序展示；自定义模式下按用户拖动排好的 state.order 展示，选中项的相对顺序即匹配优先级
+  const displayOrder = () => (state.preset === "custom" ? state.order : ruleNames());
+  const effectiveSelected = () => (state.preset === "custom" ? state.order.filter((n) => state.selected.includes(n)) : meta.presets[state.preset] || []);
+  function enterCustom() {
+    if (state.preset === "custom") return;
+    state.selected = [...effectiveSelected()];
+    state.order = ruleNames();
+    state.preset = "custom";
+  }
 
   // ---------- subscription urls (format must stay compatible with existing links) ----------
   function customRulesParam() {
@@ -153,7 +162,7 @@
   }
 
   function buildUrls(input, origin = location.origin) {
-    const selectedRules = state.preset === "custom" ? state.selected : state.preset;
+    const selectedRules = state.preset === "custom" ? effectiveSelected() : state.preset;
     const configParam = state.configId ? `&configId=${state.configId}` : "";
     const config = encodeURIComponent(input);
     const rules = `&selectedRules=${encodeURIComponent(JSON.stringify(selectedRules))}&customRules=${encodeURIComponent(JSON.stringify(customRulesParam()))}&pin=${state.pin}`;
@@ -181,11 +190,17 @@
 
   // ---------- 02 rule categories ----------
   function renderRules() {
-    const selected = new Set(effectiveSelected());
+    const selectedList = effectiveSelected();
+    const selected = new Set(selectedList);
+    const byName = Object.fromEntries(meta.rules.map((r) => [r.name, r]));
     $$("#presetSwitch button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.preset === state.preset)));
-    $("#ruleGrid").innerHTML = meta.rules
+    $("#ruleGrid").innerHTML = displayOrder()
+      .map((name) => byName[name])
+      .filter(Boolean)
       .map((r) => `
         <button type="button" class="rule-tile" data-rule="${esc(r.name)}" aria-pressed="${selected.has(r.name)}">
+          <span class="rule-grip" data-grip title="拖动排序">${icon("grip-vertical")}</span>
+          <span class="rule-tile-rank">${selected.has(r.name) ? String(selectedList.indexOf(r.name) + 1).padStart(2, "0") : ""}</span>
           <span class="rule-tile-icon">${icon(RULE_ICONS[r.name] || "layers")}</span>
           <span class="rule-tile-text">
             <span class="rule-tile-name">${esc(stripEmoji(r.outbound))}</span>
@@ -201,23 +216,108 @@
     $("#presetSwitch").addEventListener("click", (e) => {
       const preset = e.target.closest("button")?.dataset.preset;
       if (!preset || preset === state.preset) return;
-      if (preset === "custom") state.selected = [...effectiveSelected()];
-      state.preset = preset;
+      if (preset === "custom") {
+        // 显式切到自定义：保留上次拖好的顺序
+        const keep = state.order;
+        enterCustom();
+        if (keep.length) state.order = keep;
+      } else state.preset = preset;
       renderRules();
       refreshRuleFeet();
       changed();
     });
     $("#ruleGrid").addEventListener("click", (e) => {
       const name = e.target.closest(".rule-tile")?.dataset.rule;
-      if (!name) return;
-      const current = new Set(effectiveSelected());
-      current.has(name) ? current.delete(name) : current.add(name);
-      state.preset = "custom";
-      state.selected = meta.rules.map((r) => r.name).filter((n) => current.has(n));
+      if (!name || e.target.closest("[data-grip]")) return;
+      enterCustom();
+      state.selected = state.selected.includes(name) ? state.selected.filter((n) => n !== name) : [...state.selected, name];
       renderRules();
       refreshRuleFeet();
       changed();
     });
+    bindRuleDrag($("#ruleGrid"));
+  }
+
+  function bindRuleDrag(grid) {
+    let drag = null;
+    const tiles = () => $$(".rule-tile", grid);
+
+    const flip = (mutate) => {
+      const before = new Map(tiles().map((t) => [t, t.getBoundingClientRect()]));
+      mutate();
+      before.forEach((b, t) => {
+        if (t === drag.tile) return;
+        const a = t.getBoundingClientRect();
+        const dx = b.left - a.left;
+        const dy = b.top - a.top;
+        if (!dx && !dy) return;
+        t.style.transition = "none";
+        t.style.transform = `translate(${dx}px, ${dy}px)`;
+        requestAnimationFrame(() => {
+          t.style.transition = "transform 0.2s var(--ease)";
+          t.style.transform = "";
+        });
+      });
+    };
+
+    grid.addEventListener("pointerdown", (e) => {
+      const grip = e.target.closest("[data-grip]");
+      if (!grip || (e.pointerType === "mouse" && e.button !== 0)) return;
+      e.preventDefault();
+      enterCustom();
+      $$("#presetSwitch button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.preset === "custom")));
+      const tile = grip.closest(".rule-tile");
+      const rect = tile.getBoundingClientRect();
+      drag = { tile, grip, id: e.pointerId, x0: e.clientX, y0: e.clientY, rect, moved: false, ghost: null };
+      grip.setPointerCapture(e.pointerId);
+    });
+
+    grid.addEventListener("pointermove", (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x0;
+      const dy = e.clientY - drag.y0;
+      if (!drag.moved) {
+        if (Math.hypot(dx, dy) < 4) return;
+        drag.moved = true;
+        const ghost = drag.tile.cloneNode(true);
+        ghost.classList.add("rule-tile-ghost");
+        Object.assign(ghost.style, { left: `${drag.rect.left}px`, top: `${drag.rect.top}px`, width: `${drag.rect.width}px`, height: `${drag.rect.height}px` });
+        document.body.appendChild(ghost);
+        drag.ghost = ghost;
+        drag.tile.classList.add("is-dragging");
+      }
+      drag.ghost.style.transform = `translate(${dx}px, ${dy}px) scale(1.03)`;
+      // 用布局坐标找目标，避开 FLIP 动画中 transform 造成的命中抖动
+      const g = grid.getBoundingClientRect();
+      const px = e.clientX - g.left;
+      const py = e.clientY - g.top;
+      const over = tiles().find((t) => px >= t.offsetLeft && px <= t.offsetLeft + t.offsetWidth && py >= t.offsetTop && py <= t.offsetTop + t.offsetHeight);
+      if (!over || over === drag.tile) return;
+      const list = tiles();
+      const from = list.indexOf(drag.tile);
+      const to = list.indexOf(over);
+      flip(() => over.insertAdjacentElement(to > from ? "afterend" : "beforebegin", drag.tile));
+    });
+
+    const finish = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const { tile, ghost, moved } = drag;
+      drag = null;
+      tile.classList.remove("is-dragging");
+      if (!moved) return;
+      const to = tile.getBoundingClientRect();
+      ghost.style.transition = "transform 0.18s var(--ease), opacity 0.18s";
+      ghost.style.transform = `translate(${to.left - parseFloat(ghost.style.left)}px, ${to.top - parseFloat(ghost.style.top)}px)`;
+      ghost.style.opacity = "0";
+      setTimeout(() => ghost.remove(), 200);
+      state.order = tiles().map((t) => t.dataset.rule);
+      tiles().forEach((t) => (t.style.transition = t.style.transform = ""));
+      renderRules();
+      refreshRuleFeet();
+      changed();
+    };
+    grid.addEventListener("pointerup", finish);
+    grid.addEventListener("pointercancel", finish);
   }
 
   // ---------- 03 custom rules ----------
@@ -807,6 +907,8 @@
     } catch {
       setStatus("error", "规则数据加载失败");
     }
+    const names = ruleNames();
+    state.order = [...state.order.filter((n) => names.includes(n)), ...names.filter((n) => !state.order.includes(n))];
     renderRules();
     refreshRuleFeet();
     preview.reason = "init";

@@ -116,10 +116,14 @@ export const BUILTIN_OUTBOUNDS = ["DIRECT", "REJECT"];
 
 export const DIRECT_DEFAULT_OUTBOUNDS = UNIFIED_RULES.filter((rule) => rule.default_direct).map((rule) => rule.outbound);
 
+const RULE_NAMES = UNIFIED_RULES.map((rule) => rule.name);
+const inUnifiedOrder = (names) => RULE_NAMES.filter((name) => names.includes(name));
+
+// 预设固定按 UNIFIED_RULES 顺序；数组形式的 selectedRules 按传入顺序，即用户拖动排好的优先级
 export const PREDEFINED_RULE_SETS = {
-  minimal: ["Location:CN", "Private", "Non-China"],
-  balanced: ["Location:CN", "Private", "Non-China", "Google", "Youtube", "AI Services", "Telegram"],
-  comprehensive: UNIFIED_RULES.map((rule) => rule.name)
+  minimal: inUnifiedOrder(["Location:CN", "Private", "Non-China"]),
+  balanced: inUnifiedOrder(["Location:CN", "Private", "Non-China", "Google", "Youtube", "AI Services", "Telegram"]),
+  comprehensive: RULE_NAMES
 };
 
 const SITE_RULE_SETS = UNIFIED_RULES.reduce((acc, rule) => {
@@ -134,11 +138,20 @@ const IP_RULE_SETS = UNIFIED_RULES.reduce((acc, rule) => {
   });
   return acc;
 }, {});
-export function getOutbounds(selectedRuleNames) {
-  if (!selectedRuleNames || !Array.isArray(selectedRuleNames)) {
-    return [];
+export function resolveSelectedRules(selectedRules) {
+  if (typeof selectedRules === "string" && PREDEFINED_RULE_SETS[selectedRules]) {
+    return PREDEFINED_RULE_SETS[selectedRules];
   }
-  return UNIFIED_RULES.filter((rule) => selectedRuleNames.includes(rule.name)).map((rule) => rule.outbound);
+  if (Array.isArray(selectedRules) && selectedRules.length > 0) {
+    return [...new Set(selectedRules.filter((name) => RULE_NAMES.includes(name)))];
+  }
+  return PREDEFINED_RULE_SETS.minimal;
+}
+
+const ruleByName = (name) => UNIFIED_RULES.find((rule) => rule.name === name);
+
+export function getOutbounds(selectedRules) {
+  return resolveSelectedRules(selectedRules).map((name) => ruleByName(name).outbound);
 }
 
 const splitList = (value) => (value ? value.split(",").map((item) => item.trim()).filter(Boolean) : []);
@@ -154,24 +167,13 @@ const toRouteRule = (rule) => ({
 });
 
 export function generateRules(selectedRules = [], customRules = [], pin) {
-  if (typeof selectedRules === "string" && PREDEFINED_RULE_SETS[selectedRules]) {
-    selectedRules = PREDEFINED_RULE_SETS[selectedRules];
-  }
-  if (!selectedRules || selectedRules.length === 0) {
-    selectedRules = PREDEFINED_RULE_SETS.minimal;
-  }
-  const rules = [];
-  UNIFIED_RULES.forEach((rule) => {
-    if (selectedRules.includes(rule.name)) {
-      rules.push({
-        site_rules: rule.site_rules,
-        ip_rules: rule.ip_rules,
-        domain_suffix: rule?.domain_suffix,
-        ip_cidr: rule?.ip_cidr,
-        outbound: rule.outbound
-      });
-    }
-  });
+  const rules = resolveSelectedRules(selectedRules).map(ruleByName).map((rule) => ({
+    site_rules: rule.site_rules,
+    ip_rules: rule.ip_rules,
+    domain_suffix: rule?.domain_suffix,
+    ip_cidr: rule?.ip_cidr,
+    outbound: rule.outbound
+  }));
   if (customRules && customRules.length > 0 && pin !== "true") {
     customRules.forEach((rule) => rules.push(toRouteRule(rule)));
   } else if (customRules && customRules.length > 0 && pin === "true") {
@@ -182,21 +184,12 @@ export function generateRules(selectedRules = [], customRules = [], pin) {
 }
 
 export function generateRuleSets(selectedRules = [], customRules = []) {
-  if (typeof selectedRules === "string" && PREDEFINED_RULE_SETS[selectedRules]) {
-    selectedRules = PREDEFINED_RULE_SETS[selectedRules];
-  }
-  if (!selectedRules || selectedRules.length === 0) {
-    selectedRules = PREDEFINED_RULE_SETS.minimal;
-  }
-  const selectedRulesSet = new Set(selectedRules);
+  selectedRules = resolveSelectedRules(selectedRules);
   const siteRuleSets = new Set();
   const ipRuleSets = new Set();
-  const ruleSets = [];
-  UNIFIED_RULES.forEach((rule) => {
-    if (selectedRulesSet.has(rule.name)) {
-      rule.site_rules.forEach((siteRule) => siteRuleSets.add(siteRule));
-      rule.ip_rules.forEach((ipRule) => ipRuleSets.add(ipRule));
-    }
+  selectedRules.map(ruleByName).forEach((rule) => {
+    rule.site_rules.forEach((siteRule) => siteRuleSets.add(siteRule));
+    rule.ip_rules.forEach((ipRule) => ipRuleSets.add(ipRule));
   });
   const site_rule_sets = Array.from(siteRuleSets).map((rule) => ({
     tag: rule,
@@ -243,7 +236,6 @@ export function generateRuleSets(selectedRules = [], customRules = []) {
       });
     });
   }
-  ruleSets.push(...site_rule_sets, ...ip_rule_sets);
   return { site_rule_sets, ip_rule_sets };
 }
 
