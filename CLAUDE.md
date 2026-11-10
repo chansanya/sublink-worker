@@ -12,7 +12,7 @@ npx wrangler deploy --dry-run   # 只打包校验，不上传
 npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/build-icons.mjs 里的 NAMES）
 ```
 
-没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV 通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定省略了 `id`，部署时自动创建；迁移已有短链数据需填入原 namespace id。
+没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV 通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定的 `id` 是全零占位值（README 的 Deploy to Cloudflare 按钮要求绑定带默认值，部署时会被新建的 namespace id 覆盖）；本地 `wrangler dev` 不读取它，手动 `wrangler deploy` 前必须换成真实 id，否则报 namespace 不存在。
 
 `src/` 是从上游 esbuild 打包产物反向拆出的，原始 `worker.js` 保存在 git 首个提交（`git show f78d35c:worker.js`）。js-yaml 锁定 4.1.0 以保持 Clash YAML 输出一致。
 
