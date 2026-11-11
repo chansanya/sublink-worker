@@ -35,7 +35,7 @@ cd docs && npm run build                  # 构建文档，同时检查站内死
 - `GET /`：静态资源 `public/index.html`，不经过 Worker
 - `GET /api/rules`：前端用的规则分类与预设数据（来自 `UNIFIED_RULES` / `PREDEFINED_RULE_SETS`，含 `site_rules`、`default_outbound`）
 - `GET /api/geosite/:name`：代理 MetaCubeX 已展开 include 的纯文本名单（`GEOSITE_LIST_BASE_URL`，与 Clash 的 geosite.dat 同源），边缘缓存 1 天；不存在返回 404。供前端在线分析，每次请求只产生 1 个子请求
-- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，可选 `domain`（完整域名，Clash `DOMAIN` / sing-box `domain`，仅有值时才输出），逗号分隔）、`pin`。参数解析失败不报错而是静默回退：`selectedRules` 非预设名且 JSON 解析失败 → `minimal`，`customRules` 解析失败 → `[]`；仅缺 `config` 返回 400
+- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，可选 `domain`（完整域名，Clash `DOMAIN` / sing-box `domain`，仅有值时才输出），逗号分隔）、`pin`、可选 `name`（订阅名，经 `profileHeaders` 写入 `Content-Disposition` / `profile-title`，默认 `Sublink`；前端仅在填写时才追加，保持旧链接兼容）。参数解析失败不报错而是静默回退：`selectedRules` 非预设名且 JSON 解析失败 → `minimal`，`customRules` 解析失败 → `[]`；仅缺 `config` 返回 400
 - `/xray`：拉取并合并订阅，输出 base64
 - `/shorten`（旧，存完整 URL，`/s/:code` 跳转）、`/shorten-v2`（存 query string，`/b/` `/c/` `/x/` 分别跳转到 singbox / clash / xray）
 

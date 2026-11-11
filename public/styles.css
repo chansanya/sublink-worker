@@ -581,6 +581,8 @@ h2 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: 0.01em; }
 .link-empty { font-size: 12px; color: var(--text-3); padding: 6px 0; }
 .short { display: grid; grid-template-columns: 74px 1fr auto; align-items: center; gap: 8px; margin-top: 4px; }
 .short-label { font: 12px var(--font-mono); color: var(--text-2); }
+.profile-row .short-input { grid-column: 2 / -1; }
+.profile-row .short-input input { padding-left: 10px; }
 .short-input { display: flex; align-items: center; min-width: 0; height: 34px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; transition: border-color 0.15s, box-shadow 0.15s; }
 .short-input:focus-within { border-color: var(--line-strong); box-shadow: 0 0 0 3px var(--accent-soft); }
 .short-prefix { padding: 0 2px 0 10px; font: 12px var(--font-mono); color: var(--text-3); white-space: nowrap; max-width: 55%; overflow: hidden; text-overflow: ellipsis; }

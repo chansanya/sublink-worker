@@ -17,6 +17,7 @@
 | `selectedRules` | 否 | 预设名（`minimal` / `balanced` / `comprehensive`），或 JSON 数组形式的分类标识，例如 `["Google","Location:CN"]`。数组按给出的顺序生成规则；缺省或无法解析时使用 `minimal` |
 | `customRules` | 否 | JSON 数组形式的自定义规则，见下文 |
 | `pin` | 否 | `true` 时自定义规则排在分类规则之前 |
+| `name` | 否 | 订阅名，客户端导入时显示的配置名，默认 `Sublink`，最长 64 个字符。通过响应头 `Content-Disposition` 与 `profile-title` 返回，非 ASCII 名称分别用 `filename*=UTF-8''` 和 `base64:` 前缀编码 |
 
 分类标识见[规则分类](./guide/rules#_18-个分类)。缺少 `config` 时返回 `400 Missing config parameter`。
 

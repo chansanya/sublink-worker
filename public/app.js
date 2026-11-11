@@ -117,7 +117,7 @@
   function loadState() {
     const base = {
       input: "", preset: "minimal", selected: [], order: [], pin: true, quickRules: [], customRules: [],
-      shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: false, generated: false, advancedOpen: false
+      profileName: "", shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: false, generated: false, advancedOpen: false
     };
     let saved = null;
     try {
@@ -201,7 +201,9 @@
   function buildUrls(input, origin = location.origin) {
     const selectedRules = state.preset === "custom" ? effectiveSelected() : state.preset;
     const config = encodeURIComponent(input);
-    const rules = `&selectedRules=${encodeURIComponent(JSON.stringify(selectedRules))}&customRules=${encodeURIComponent(JSON.stringify(customRulesParam()))}&pin=${state.pin}`;
+    const profileName = (state.profileName || "").trim();
+    // name 仅在填写时追加，未填写的链接与旧版逐字节相同
+    const rules = `&selectedRules=${encodeURIComponent(JSON.stringify(selectedRules))}&customRules=${encodeURIComponent(JSON.stringify(customRulesParam()))}&pin=${state.pin}${profileName ? `&name=${encodeURIComponent(profileName)}` : ""}`;
     return {
       xray: `${origin}/xray?config=${config}`,
       singbox: `${origin}/singbox?config=${config}${rules}`,
@@ -1153,6 +1155,11 @@
   function bindLinks() {
     $("#shortPrefix").textContent = `${location.host}/`;
     $("#shortCode").value = state.shortCode;
+    $("#profileName").value = state.profileName;
+    $("#profileName").addEventListener("input", (e) => {
+      state.profileName = e.target.value;
+      changed({ preview: false });
+    });
     $("#linkRows").addEventListener("click", (e) => {
       const copy = e.target.closest("[data-copy]")?.dataset.copy;
       const qr = e.target.closest("[data-qr]")?.dataset.qr;
