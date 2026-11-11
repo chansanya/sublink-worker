@@ -10,7 +10,12 @@ npm run dev      # wrangler dev，本地 http://localhost:8787，KV 使用 .wran
 npm run deploy   # wrangler deploy（首次需 npx wrangler login）
 npx wrangler deploy --dry-run   # 只打包校验，不上传
 npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/build-icons.mjs 里的 NAMES）
+
+cd docs && npm install && npm run dev     # 文档站本地预览（VitePress，http://localhost:5173）
+cd docs && npm run build                  # 构建文档，同时检查站内死链
 ```
+
+`docs/` 是独立的 npm 包（有自己的 `package.json` / `package-lock.json`），根目录构建不会安装 VitePress。`.github/workflows/docs-pages.yml` 在 `docs/**` 变更时构建并推送到 `gh-pages` 分支，由 GitHub Pages 托管在 `https://chansanya.github.io/sublink-worker/`（对应 `config.mts` 的 `base`）。它与 Cloudflare 部署完全独立，**不要把文档放进 `public/`**，否则会被 Worker 一并托管且根路径链接在 Pages 下全部失效。主页顶栏的「文档」链接指向该 Pages 地址。
 
 没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV（仅用于短链）通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定的 `id` 是全零占位值（README 的 Deploy to Cloudflare 按钮要求绑定带默认值，部署时会被新建的 namespace id 覆盖）；本地 `wrangler dev` 不读取它，手动 `wrangler deploy` 前必须换成真实 id，否则报 namespace 不存在。
 
@@ -30,13 +35,15 @@ npm run icons    # 重新生成 public/icons.js（新增图标时先改 scripts/
 - `GET /`：静态资源 `public/index.html`，不经过 Worker
 - `GET /api/rules`：前端用的规则分类与预设数据（来自 `UNIFIED_RULES` / `PREDEFINED_RULE_SETS`，含 `site_rules`、`default_outbound`）
 - `GET /api/geosite/:name`：代理 MetaCubeX 已展开 include 的纯文本名单（`GEOSITE_LIST_BASE_URL`，与 Clash 的 geosite.dat 同源），边缘缓存 1 天；不存在返回 404。供前端在线分析，每次请求只产生 1 个子请求
-- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，可选 `domain`（完整域名，Clash `DOMAIN` / sing-box `domain`，仅有值时才输出），逗号分隔）、`pin`
+- `/singbox`、`/clash`：参数 `config`（换行分隔的节点或订阅 URL）、`selectedRules`（预设名或 JSON 数组）、`customRules`（JSON，字段 `site/ip/name/domain_suffix/domain_keyword/ip_cidr/protocol`，可选 `domain`（完整域名，Clash `DOMAIN` / sing-box `domain`，仅有值时才输出），逗号分隔）、`pin`。参数解析失败不报错而是静默回退：`selectedRules` 非预设名且 JSON 解析失败 → `minimal`，`customRules` 解析失败 → `[]`；仅缺 `config` 返回 400
 - `/xray`：拉取并合并订阅，输出 base64
 - `/shorten`（旧，存完整 URL，`/s/:code` 跳转）、`/shorten-v2`（存 query string，`/b/` `/c/` `/x/` 分别跳转到 singbox / clash / xray）
 
 ## 前端（`public/`）
 
 原生 HTML/CSS/JS，无构建步骤。`app.js` 是单个 IIFE：状态整体存于 localStorage `sublink:v2`（首次加载会迁移旧版键 `inputTextarea` 等），规则分类卡片可拖动排序（`bindRuleDrag`，pointer events + FLIP），顺序存于 `state.order`，自定义模式下 `effectiveSelected()` 按它过滤出有序数组；预设模式按固定顺序展示。任何改动经 `changed()` 触发持久化、刷新链接并防抖请求 `/clash` 等接口生成实时预览——预览与真实订阅走同一份后端代码。
+
+布局为单列居中（`.pane-config` 最大宽度 880px）：hero → 输入源 → 「高级选项」`<details>`（内含规则分类与自定义规则）→ 生成订阅 / 清除 → 订阅链接。`state.generated` 控制订阅链接块（`#links`）是否显示，首次点「生成订阅」后始终显示并实时更新；「清除」只清空输入源与 `generated`，保留规则设置。`state.advancedOpen` 记住高级选项的展开状态。主题默认跟随系统（`index.html` 内联脚本按 localStorage `theme`、其次 `prefers-color-scheme` 设置 `data-theme`；未手动切换时 `bindTheme` 会实时响应系统切换，手动切换后写入 `theme` 并不再跟随；文档站 VitePress 默认即跟随系统），强调色为天蓝渐变。预览抽屉默认收起（`drawerOpen: false`）。
 
 - **订阅链接格式必须与旧版逐字节兼容**（`buildUrls`）：`selectedRules` 为预设名字符串或规则名数组，`customRules` 为逗号拼接的字符串字段，`domain` 仅在非空时追加在末尾（`ruleParam`）。改动会导致已分发的链接与新生成的不一致。
 - 图标是 `scripts/build-icons.mjs` 从 lucide 导出的子集（`window.ICONS`），HTML 中写 `<i data-icon="name">`，由 `hydrateIcons` 替换为 SVG；界面不使用 emoji，规则组名里的 emoji 用 `stripEmoji` 去掉后展示。

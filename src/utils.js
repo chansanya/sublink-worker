@@ -108,10 +108,9 @@ export function parseServerInfo(serverInfo) {
 
 export function parseUrlParams(url) {
   const [, rest] = url.split("://");
-  const [addressPart, ...remainingParts] = rest.split("?");
-  const paramsPart = remainingParts.join("?");
-  const [paramsOnly, ...fragmentParts] = paramsPart.split("#");
-  const searchParams = new URLSearchParams(paramsOnly);
+  const [beforeHash, ...fragmentParts] = rest.split("#");
+  const [addressPart, ...remainingParts] = beforeHash.split("?");
+  const searchParams = new URLSearchParams(remainingParts.join("?"));
   const params = Object.fromEntries(searchParams.entries());
   const name = fragmentParts.length > 0 ? decodeURIComponent(fragmentParts.join("#")) : "";
   return { addressPart, params, name };

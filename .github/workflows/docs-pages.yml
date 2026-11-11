@@ -1,11 +1,11 @@
 name: Deploy Documentation to GitHub Pages
 
+# docs/ 是独立的 VitePress 站点，构建产物推送到 gh-pages 分支，与 Cloudflare 部署互不影响
 on:
   push:
     branches:
       - main
     paths:
-      - 'public/docs/**'
       - 'docs/**'
       - '.github/workflows/docs-pages.yml'
   workflow_dispatch:
@@ -14,20 +14,38 @@ permissions:
   contents: write
 
 concurrency:
-  group: 'gh-pages'
+  group: gh-pages
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # VitePress 的「最后更新于」依赖完整 git 历史
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
 
       - name: Deploy to gh-pages branch
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public/docs
+          publish_dir: ./docs/.vitepress/dist
           publish_branch: gh-pages
           force_orphan: true

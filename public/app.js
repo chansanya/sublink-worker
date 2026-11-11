@@ -117,7 +117,7 @@
   function loadState() {
     const base = {
       input: "", preset: "minimal", selected: [], order: [], pin: true, quickRules: [], customRules: [],
-      shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: true
+      shortCode: "", savedPaths: [], short: null, tab: "clash", drawerOpen: false, generated: false, advancedOpen: false
     };
     let saved = null;
     try {
@@ -975,9 +975,8 @@
   }
 
   function setStatus(kind, text) {
-    const el = $("#status");
-    el.dataset.state = kind;
-    $(".status-text", el).textContent = text;
+    // 状态栏已从界面移除，保留该方法避免改动所有调用点；错误直接 toast
+    if (kind === "error" && text) toast(text, true);
   }
 
   function renderPreviewNote() {
@@ -1100,6 +1099,7 @@
     const rows = $("#linkRows");
     const notice = $("#shortNotice");
     const btn = $("#shortenBtn");
+    $("#links").hidden = !state.generated;
     if (!state.input.trim()) {
       currentLinks = null;
       rows.innerHTML = '<p class="link-empty">填入节点后生成订阅链接</p>';
@@ -1246,11 +1246,43 @@
     const btn = $("#themeToggle");
     const paint = () => (btn.innerHTML = icon(document.documentElement.dataset.theme === "dark" ? "sun" : "moon"));
     paint();
+    matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+      if (localStorage.getItem("theme")) return;
+      document.documentElement.dataset.theme = e.matches ? "dark" : "light";
+      paint();
+    });
     btn.addEventListener("click", () => {
       const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
       document.documentElement.dataset.theme = next;
       localStorage.setItem("theme", next);
       paint();
+    });
+  }
+
+  // ---------- 生成 / 清除 ----------
+  function bindActions() {
+    $("#generateBtn").addEventListener("click", () => {
+      if (!state.input.trim()) {
+        toast("先粘贴节点链接或订阅地址", true);
+        $("#input").focus();
+        return;
+      }
+      state.generated = true;
+      renderLinks();
+      persist();
+      $("#links").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    $("#clearBtn").addEventListener("click", () => {
+      state.input = "";
+      state.generated = false;
+      $("#input").value = "";
+      renderNodes();
+      changed();
+      $("#input").focus();
+    });
+    $("#advancedOptions").addEventListener("toggle", () => {
+      state.advancedOpen = $("#advancedOptions").open;
+      persist();
     });
   }
 
@@ -1261,11 +1293,13 @@
     hydrateIcons();
     $("#input").value = state.input;
     $("#pinToggle").checked = state.pin;
+    $("#advancedOptions").open = state.advancedOpen;
     $("#input").addEventListener("input", (e) => {
       state.input = e.target.value;
       renderNodes();
       changed();
     });
+    bindActions();
     bindTheme();
     bindDrawer();
     bindRules();

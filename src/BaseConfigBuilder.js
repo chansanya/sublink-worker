@@ -1,6 +1,15 @@
 import { DeepCopy } from "./utils.js";
 import { ProxyParser } from "./ProxyParsers.js";
 
+const safeParse = async (url) => {
+  try {
+    return await ProxyParser.parse(url);
+  } catch (error) {
+    console.warn("Skipped invalid proxy:", error.message);
+    return null;
+  }
+};
+
 export class BaseConfigBuilder {
   constructor(inputString, baseConfig) {
     this.inputString = inputString;
@@ -17,10 +26,10 @@ export class BaseConfigBuilder {
     const urls = this.inputString.split("\n").filter((url) => url.trim() !== "");
     const parsedItems = [];
     for (const url of urls) {
-      const result = await ProxyParser.parse(url);
+      const result = await safeParse(url);
       if (Array.isArray(result)) {
         for (const subUrl of result) {
-          const subResult = await ProxyParser.parse(subUrl);
+          const subResult = await safeParse(subUrl);
           if (subResult) {
             parsedItems.push(subResult);
           }

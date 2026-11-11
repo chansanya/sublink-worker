@@ -1,71 +1,70 @@
-# API 接口参考
+# API
 
-Sublink Worker 提供了基于标准 HTTP GET 的开放 API 接口，兼容任意订阅管理客户端或自动化脚本。
+所有接口都是 `GET` 请求，参数放在查询字符串里，需要 URL 编码。
 
----
+## 生成配置
 
-## 1. 订阅配置生成端点
+### `/clash` 与 `/singbox`
 
-### `GET /clash`
-将传入的节点与规则生成标准 Clash (mihomo) YAML 格式。
+| 接口 | 返回 | Content-Type |
+|---|---|---|
+| `/clash` | Clash（mihomo）YAML 配置 | `text/yaml; charset=utf-8` |
+| `/singbox` | sing-box JSON 配置 | `application/json; charset=utf-8` |
 
-**返回头**：`content-type: text/yaml; charset=utf-8`
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `config` | 是 | 节点链接或 `http(s)://` 订阅地址，多个用换行分隔 |
+| `selectedRules` | 否 | 预设名（`minimal` / `balanced` / `comprehensive`），或 JSON 数组形式的分类标识，例如 `["Google","Location:CN"]`。数组按给出的顺序生成规则；缺省或无法解析时使用 `minimal` |
+| `customRules` | 否 | JSON 数组形式的自定义规则，见下文 |
+| `pin` | 否 | `true` 时自定义规则排在分类规则之前 |
 
-**查询参数**：
-- `config`（必须）：换行分隔的节点链接或机场订阅 URL。
-- `selectedRules`：预设名（`minimal` / `balanced` / `comprehensive`）或 JSON 序列化的分类英文名数组。
-- `customRules`：JSON 序列化的自定义规则对象数组。
-- `pin`：`true` 或 `false`，控制自定义规则是否置顶。
+分类标识见[规则分类](./guide/rules#_18-个分类)。缺少 `config` 时返回 `400 Missing config parameter`。
 
-**示例**：
-```http
-GET /clash?config=vless%3A%2F%2F...&selectedRules=balanced&pin=true
+#### customRules
+
+每条规则是一个对象，所有字段都是字符串，多个值用逗号分隔：
+
+| 字段 | 对应规则 |
+|---|---|
+| `name` | 出站。`DIRECT` / `REJECT` 直接指向内置出站；其他名称会新建同名策略组 |
+| `domain` | 完整域名（Clash `DOMAIN`，sing-box `domain`），可省略 |
+| `domain_suffix` | 域名后缀 |
+| `domain_keyword` | 域名关键词 |
+| `ip_cidr` | IP 段 |
+| `site` | Geo-Site 分类名 |
+| `ip` | Geo-IP 分类名 |
+| `protocol` | 协议，仅 sing-box 生效 |
+
+```json
+[
+  { "site": "", "ip": "", "name": "DIRECT", "domain_suffix": "example.com", "domain_keyword": "", "ip_cidr": "10.0.0.0/8", "protocol": "" }
+]
 ```
 
----
+### `/xray`
 
-### `GET /singbox`
-将传入的节点与规则生成 sing-box 1.8+ 标准 JSON 配置。
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `config` | 是 | 同上 |
 
-**返回头**：`content-type: application/json; charset=utf-8`
+拉取其中的订阅并与节点链接合并，返回 Base64 编码的节点列表（每行一个节点）。响应的 Content-Type 为 `application/json; charset=utf-8`，这是沿用上游的行为，内容本身是纯文本 Base64。
 
-**查询参数**：与 `/clash` 完全一致。
+## 短链
 
----
+| 接口 | 说明 |
+|---|---|
+| `/shorten-v2?url=<订阅链接>&shortCode=<路径>` | 保存 `url` 的查询参数，返回纯文本路径。`shortCode` 省略时随机生成 7 位；已存在的路径会被覆盖 |
+| `/c/:code` | 302 跳转到 `/clash?<保存的参数>` |
+| `/b/:code` | 302 跳转到 `/singbox?<保存的参数>` |
+| `/x/:code` | 302 跳转到 `/xray?<保存的参数>` |
+| `/shorten?url=<完整链接>` | 旧版接口：保存完整链接，返回 `{"shortUrl": ".../s/<code>"}` |
+| `/s/:code` | 旧版接口：302 跳转到保存的完整链接，不存在时返回 `404 Short URL not found` |
 
-### `GET /xray`
-抓取并合并所有给定的订阅链接与节点，输出标准的 base64 聚合节点列表。
+短链存储在 KV 中，不设过期时间。
 
-**返回头**：`content-type: application/json; charset=utf-8`
+## 前端辅助接口
 
-**查询参数**：
-- `config`（必须）：换行分隔的节点链接或订阅地址。
-
----
-
-## 2. 短链服务端点
-
-### `GET /shorten-v2`
-将长链接提取参数并写入 KV 存储。
-
-**查询参数**：
-- `url`（必须）：待压缩的完整订阅 URL。
-- `shortCode`（可选）：自定义短链路径。若不提供则随机生成 8 位英数短码。
-
-**返回值**：纯文本短码（HTTP 200）。
-
----
-
-### 短链跳转路由
-根据短码自动跳转到对应客户端的完整输出端点（HTTP 302）：
-- `GET /c/:code`：重定向至 `/clash?{params}`
-- `GET /b/:code`：重定向至 `/singbox?{params}`
-- `GET /x/:code`：重定向至 `/xray?{params}`
-- `GET /s/:code`：（旧版兼容）跳转至保存的原始长 URL
-
----
-
-## 3. 元数据辅助接口
-
-- `GET /api/rules`：获取当前 Worker 支持的所有 18 个规则分类的元数据，包含其名称、映射出站、Site 规则定义及默认出站动作。
-- `GET /api/geosite/:name`：代理并缓存 MetaCubeX 的展开纯文本域名列表，用于前端实时计算分类包含度与规模。
+| 接口 | 说明 |
+|---|---|
+| `/api/rules` | 返回 `{ rules, presets }`：每个分类的 `name`、`outbound`、`site_rules`、`default_outbound`，以及三个预设包含的分类 |
+| `/api/geosite/:name` | 返回 MetaCubeX 中该分类已展开的纯文本域名名单（`+.` 开头为后缀，其余为完整域名），边缘缓存 1 天；分类不存在返回 404，名称不合法返回 400 |

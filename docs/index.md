@@ -1,0 +1,28 @@
+---
+layout: home
+
+hero:
+  name: Sublink Worker
+  text: 一个 Worker，管好所有订阅
+  tagline: 把节点链接与机场订阅转换为 Clash、sing-box、Xray 配置，部署在你自己的 Cloudflare Workers 上
+  image:
+    src: /favicon.svg
+    alt: Sublink Worker
+  actions:
+    - theme: brand
+      text: 快速开始
+      link: /guide/quick-start
+    - theme: alt
+      text: GitHub
+      link: https://github.com/chansanya/sublink-worker
+
+features:
+  - title: 多种输入与输出
+    details: 支持 ss、vmess、vless、trojan、hysteria2、tuic 节点链接和 http(s) 订阅地址，可混合填写；输出 Clash、sing-box 配置与 Xray 节点列表。
+  - title: 18 个规则分类
+    details: 三档预设或自由勾选，拖动调整匹配优先级；在线统计每个分类的域名数，排序冲突给出提示并可一键修正。
+  - title: 简单的自定义规则
+    details: 一行选择直连或拒绝，填入域名、域名后缀或 IP 段即可；需要自定义出站、Geo-Site 等时再展开高级规则。
+  - title: 实时预览与固定短链
+    details: 修改时即可查看生成的配置文件；用固定的短链路径覆盖更新，客户端的订阅地址无需更换。
+---

@@ -2,27 +2,7 @@
 
 以 FlClash 运行时导出的完整配置为样本，逐段说明各字段的作用、来源，以及与本项目（sublink-worker）的对应关系。
 
-> 字段语义以 mihomo 官方文档为准：https://wiki.metacubex.one/config/ 。下文样本中的节点凭据（UUID、服务器 IP、公钥）已替换为占位符。
-
----
-
-## 目录
-
-1. [整体结构与流量走向](#1-整体结构与流量走向)
-2. [字段来源：订阅 vs 客户端](#2-字段来源订阅-vs-客户端)
-3. [入站：流量从哪里进来](#3-入站流量从哪里进来)
-4. [全局行为](#4-全局行为)
-5. [外部控制与面板](#5-外部控制与面板)
-6. [GEO 数据库](#6-geo-数据库)
-7. [proxies：节点](#7-proxies节点)
-8. [proxy-groups：策略组](#8-proxy-groups策略组)
-9. [rules：分流规则](#9-rules分流规则)
-10. [dns：域名解析](#10-dns域名解析)
-11. [tun：虚拟网卡](#11-tun虚拟网卡)
-12. [sniffer：域名嗅探](#12-sniffer域名嗅探)
-13. [其余字段](#13-其余字段)
-14. [与 sublink-worker 的对应关系](#14-与-sublink-worker-的对应关系)
-15. [问题与建议](#15-问题与建议)
+> 字段语义以 [mihomo 官方文档](https://wiki.metacubex.one/config/) 为准。下文样本中的节点凭据（UUID、服务器 IP、公钥）已替换为占位符。
 
 ---
 
@@ -526,10 +506,10 @@ sniffer:
 
 | 配置内容 | 项目代码位置 | 说明 |
 |---|---|---|
-| 顶层默认值、DNS | [src/config.js](../src/config.js) `CLASH_CONFIG` | 端口、`allow-lan`、`mode`、`log-level`、DNS 基础配置 |
-| `proxies` | [src/ProxyParsers.js](../src/ProxyParsers.js) → [src/ClashConfigBuilder.js](../src/ClashConfigBuilder.js) `convertToClashProxy` | 先解析为 sing-box 格式，再转换为 Clash 格式 |
+| 顶层默认值、DNS | [src/config.js](https://github.com/chansanya/sublink-worker/blob/main/src/config.js) `CLASH_CONFIG` | 端口、`allow-lan`、`mode`、`log-level`、DNS 基础配置 |
+| `proxies` | [src/ProxyParsers.js](https://github.com/chansanya/sublink-worker/blob/main/src/ProxyParsers.js) → [src/ClashConfigBuilder.js](https://github.com/chansanya/sublink-worker/blob/main/src/ClashConfigBuilder.js) `convertToClashProxy` | 先解析为 sing-box 格式，再转换为 Clash 格式 |
 | `proxy-groups` | `ClashConfigBuilder.addSelectors` | 固定生成 `🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`，其余按所选规则生成；`UNIFIED_RULES` 中声明了 `default_outbound` 的类别首项为该出站：私有网络、国内服务、苹果、微软为 `DIRECT`，广告拦截为 `REJECT`；`REJECT` 仅保留在广告拦截与自定义出站组 |
-| `rules` | [src/config.js](../src/config.js) `generateRules` + `ClashConfigBuilder.formatConfig` | 规则来源于 `UNIFIED_RULES`；`MATCH,🐟 漏网之鱼` 固定追加在末尾 |
+| `rules` | [src/config.js](https://github.com/chansanya/sublink-worker/blob/main/src/config.js) `generateRules` + `ClashConfigBuilder.formatConfig` | 规则来源于 `UNIFIED_RULES`；`MATCH,🐟 漏网之鱼` 固定追加在末尾 |
 | 规则预设 | `PREDEFINED_RULE_SETS` | 样本对应 `minimal` = `Location:CN` + `Private` + `Non-China` |
 
 ### 样本规则的生成过程

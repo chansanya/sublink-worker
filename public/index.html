@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,13 +8,14 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/styles.css">
   <script>
-    document.documentElement.dataset.theme = localStorage.getItem("theme") || "dark";
+    // 未手动切换过主题时跟随系统
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     // 渲染前确定抽屉状态，避免首屏闪动；窄屏总是收起
     try {
       const saved = JSON.parse(localStorage.getItem("sublink:v2") || "{}");
-      document.documentElement.dataset.drawer = matchMedia("(max-width: 1080px)").matches || saved.drawerOpen === false ? "closed" : "open";
+      document.documentElement.dataset.drawer = matchMedia("(max-width: 1080px)").matches || saved.drawerOpen !== true ? "closed" : "open";
     } catch {
-      document.documentElement.dataset.drawer = "open";
+      document.documentElement.dataset.drawer = "closed";
     }
   </script>
 </head>
@@ -25,22 +26,25 @@
       <span class="brand-name">Sublink</span>
       <span class="brand-sub">Worker</span>
     </div>
-    <div class="status" id="status" data-state="idle" role="status" aria-live="polite">
-      <span class="status-dot"></span><span class="status-text">就绪</span>
-    </div>
     <nav class="topbar-nav">
-      <a href="/docs/" class="topbar-link" title="使用文档与 API 参考"><i data-icon="book-open"></i><span>文档</span></a>
+      <a href="https://chansanya.github.io/sublink-worker/" class="topbar-link" title="使用文档与 API 参考"><i data-icon="book-open"></i><span>文档</span></a>
+      <a href="https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener" class="icon-btn" aria-label="GitHub 仓库" title="GitHub 仓库"><i data-icon="git-branch"></i></a>
+      <button class="icon-btn" id="drawerToggle" type="button" aria-controls="drawer" aria-label="切换预览" title="打开 / 收起预览"><i data-icon="panel-right-open"></i></button>
+      <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题"><i data-icon="sun"></i></button>
     </nav>
-    <button class="icon-btn" id="drawerToggle" type="button" aria-controls="drawer" aria-label="切换预览" title="打开 / 收起预览"><i data-icon="panel-right-open"></i></button>
-    <button class="icon-btn" id="themeToggle" type="button" aria-label="切换主题"><i data-icon="moon"></i></button>
   </header>
 
   <main class="workspace">
     <section class="pane pane-config" aria-label="配置">
+      <header class="hero">
+        <h1 class="hero-title">Sublink Worker</h1>
+        <p class="hero-sub">高效聚合与管理你的代理节点</p>
+      </header>
+
       <section class="block">
         <header class="block-head">
-          <span class="block-index">01</span>
-          <h2>节点</h2>
+          <span class="block-index"><i data-icon="waypoints"></i></span>
+          <h2>输入源</h2>
           <span class="block-meta" id="nodeMeta"></span>
         </header>
         <textarea id="input" class="code-input" rows="5" spellcheck="false" autocomplete="off"
@@ -48,54 +52,68 @@
         <div class="chips" id="protocolChips"></div>
       </section>
 
-      <section class="block">
-        <header class="block-head">
-          <span class="block-index">02</span>
-          <h2>规则分类</h2>
-          <span class="block-meta" id="ruleMeta"></span>
-          <button type="button" class="btn btn-sm btn-outline" id="recommendOrder" disabled><i data-icon="sparkles"></i>推荐排序</button>
-        </header>
-        <div class="segmented" id="presetSwitch" role="radiogroup" aria-label="规则预设">
-          <button type="button" role="radio" data-preset="minimal">精简</button>
-          <button type="button" role="radio" data-preset="balanced">均衡</button>
-          <button type="button" role="radio" data-preset="comprehensive">全面</button>
-          <button type="button" role="radio" data-preset="custom">自定义</button>
+      <details class="block advanced-options" id="advancedOptions">
+        <summary class="block-head">
+          <span class="block-index"><i data-icon="layers"></i></span>
+          <h2>高级选项</h2>
+          <span class="block-meta" id="advancedMeta"></span>
+          <i data-icon="chevron-down" class="options-chevron"></i>
+        </summary>
+
+        <div class="block">
+          <header class="block-head">
+            <span class="block-index"><i data-icon="list-filter"></i></span>
+            <h2>规则分类</h2>
+            <span class="block-meta" id="ruleMeta"></span>
+            <button type="button" class="btn btn-sm btn-outline" id="recommendOrder" disabled><i data-icon="sparkles"></i>推荐排序</button>
+          </header>
+          <div class="segmented" id="presetSwitch" role="radiogroup" aria-label="规则预设">
+            <button type="button" role="radio" data-preset="minimal">精简</button>
+            <button type="button" role="radio" data-preset="balanced">均衡</button>
+            <button type="button" role="radio" data-preset="comprehensive">全面</button>
+            <button type="button" role="radio" data-preset="custom">自定义</button>
+          </div>
+          <div class="rule-grid" id="ruleGrid"></div>
+          <div class="conflicts" id="ruleConflicts"></div>
+          <p class="block-foot">拖动左侧手柄调整顺序，靠前的分类先匹配，序号即当前优先级。卡片上的数字是该分类的域名数；大分类排在它包含的小分类前面时，会在上方提示。</p>
         </div>
-        <div class="rule-grid" id="ruleGrid"></div>
-        <div class="conflicts" id="ruleConflicts"></div>
-        <p class="block-foot">拖动左侧手柄调整顺序，靠前的分类先匹配，序号即当前优先级。卡片上的数字是该分类的域名数；大分类排在它包含的小分类前面时，会在上方提示。标记「直连」「拦截」的分组默认直连 / 拦截。</p>
-      </section>
 
-      <section class="block">
+        <div class="block">
+          <header class="block-head">
+            <span class="block-index"><i data-icon="pin"></i></span>
+            <h2>自定义规则</h2>
+            <label class="switch" title="打开后自定义规则排在所有分类规则之前">
+              <input type="checkbox" id="pinToggle">
+              <span class="switch-track"><span class="switch-thumb"></span></span>
+              <span class="switch-label"><i data-icon="pin"></i>置顶</span>
+            </label>
+          </header>
+          <div class="quick-list" id="quickList"></div>
+          <button type="button" class="add-rule" id="addQuick"><i data-icon="plus"></i>添加规则</button>
+          <p class="block-foot">对指定的域名、域名后缀或 IP 段直连 / 拒绝。多个值可用逗号、空格或回车分隔；粘贴网址会自动提取域名，单个 IP 自动补全为 IP 段。</p>
+
+          <details class="advanced" id="advancedRules">
+            <summary>
+              <i data-icon="chevron-down" class="advanced-chevron"></i>
+              <span>高级规则</span>
+              <span class="advanced-count" id="advancedCount"></span>
+              <span class="advanced-hint">自定义出站、Geo-Site / Geo-IP、关键词、协议</span>
+            </summary>
+            <div class="rule-list" id="customList"></div>
+            <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加高级规则</button>
+            <p class="block-foot">出站填新名称会新建同名策略组，填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝。高级规则排在上方快捷规则之后。</p>
+          </details>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="button" class="btn btn-primary btn-lg" id="generateBtn"><i data-icon="arrow-right"></i>生成订阅</button>
+        <button type="button" class="btn btn-ghost" id="clearBtn"><i data-icon="trash-2"></i>清除</button>
+      </div>
+
+      <section class="block links" id="links" hidden>
         <header class="block-head">
-          <span class="block-index">03</span>
-          <h2>自定义规则</h2>
-          <label class="switch" title="打开后自定义规则排在所有分类规则之前">
-            <input type="checkbox" id="pinToggle">
-            <span class="switch-track"><span class="switch-thumb"></span></span>
-            <span class="switch-label"><i data-icon="pin"></i>置顶</span>
-          </label>
-        </header>
-        <div class="quick-list" id="quickList"></div>
-        <button type="button" class="add-rule" id="addQuick"><i data-icon="plus"></i>添加规则</button>
-        <p class="block-foot">对指定的域名、域名后缀或 IP 段直连 / 拒绝。多个值可用逗号、空格或回车分隔；粘贴网址会自动提取域名，单个 IP 自动补全为 IP 段。</p>
-
-        <details class="advanced" id="advancedRules">
-          <summary>
-            <i data-icon="chevron-down" class="advanced-chevron"></i>
-            <span>高级规则</span>
-            <span class="advanced-count" id="advancedCount"></span>
-            <span class="advanced-hint">自定义出站、Geo-Site / Geo-IP、关键词、协议</span>
-          </summary>
-          <div class="rule-list" id="customList"></div>
-          <button type="button" class="add-rule" id="addRule"><i data-icon="plus"></i>添加高级规则</button>
-          <p class="block-foot">出站填新名称会新建同名策略组，填 <code>DIRECT</code> / <code>REJECT</code> 时直接直连 / 拒绝。高级规则排在上方快捷规则之后。</p>
-        </details>
-      </section>
-
-      <section class="block links" id="links">
-        <header class="block-head">
-          <span class="block-index">04</span>
+          <span class="block-index"><i data-icon="link"></i></span>
           <h2>订阅链接</h2>
           <span class="block-meta" id="linksMeta"></span>
         </header>
@@ -131,6 +149,12 @@
       </div>
     </aside>
   </main>
+
+  <footer class="footer">
+    <span>© 2026 Sublink Worker · 基于 MIT 许可证</span>
+    <a href="https://chansanya.github.io/sublink-worker/" target="_blank" rel="noopener">文档</a>
+    <a href="https://github.com/chansanya/sublink-worker" target="_blank" rel="noopener">GitHub</a>
+  </footer>
 
   <button type="button" class="drawer-handle" id="drawerHandle" aria-label="打开预览"><i data-icon="panel-right-open"></i><span>预览</span></button>
   <div class="drawer-backdrop" id="drawerBackdrop"></div>
