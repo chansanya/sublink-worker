@@ -5,9 +5,8 @@
   "compatibility_date": "2026-11-01",
   "assets": { "directory": "./public" },
   "kv_namespaces": [
-    // id 是占位值：Deploy to Cloudflare 按钮会自动创建 KV 并替换它。
-    // 手动 wrangler deploy 前，先 `npx wrangler kv namespace create SUBLINK_KV`，把输出的 id 填到这里；
-    // 本地 wrangler dev 用本地模拟 KV，不读取此 id。
-    { "binding": "SUBLINK_KV", "id": "00000000000000000000000000000000" }
+    // 不写 id：wrangler 部署时会在账号里自动创建 SUBLINK_KV 并回填（需 wrangler >= 4.45）。
+    // 本地 wrangler dev 用本地模拟 KV。
+    { "binding": "SUBLINK_KV" }
   ]
 }

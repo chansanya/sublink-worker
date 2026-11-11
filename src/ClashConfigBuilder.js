@@ -11,10 +11,14 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
     this.pin = pin;
   }
   addCustomItems(customItems) {
+    const names = new Set(this.config.proxies.map((p) => p.name));
     customItems.forEach((item) => {
-      if (item?.tag && !this.config.proxies.some((p) => p.name === item.tag)) {
-        this.config.proxies.push(this.convertToClashProxy(item));
-      }
+      if (!item) return;
+      const base = item.tag || `${item.server}:${item.server_port}`;
+      let name = base;
+      for (let n = 2; names.has(name); n++) name = `${base} ${n}`;
+      names.add(name);
+      this.config.proxies.push(this.convertToClashProxy({ ...item, tag: name }));
     });
   }
   addSelectors() {
@@ -179,7 +183,7 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
           port: proxy.server_port,
           uuid: proxy.uuid,
           password: proxy.password,
-          "congestion-controller": proxy.congestion,
+          "congestion-controller": proxy.congestion_control,
           "skip-cert-verify": proxy.tls.insecure,
           "disable-sni": true,
           "alpn": proxy.tls.alpn,

@@ -8,14 +8,14 @@ Contributor guide for **sublink-worker**, a Cloudflare Worker that converts prox
 - `public/` — Static UI (`index.html`, `app.js`, `styles.css`, `icons.js`) via Workers Static Assets; other routes hit the Worker.
 - `docs/` — Standalone VitePress site (`docs/package.json`). Never place docs under `public/`.
 - `scripts/build-icons.mjs` — Regenerates Lucide icons into `public/icons.js`.
-- `wrangler.jsonc` — Worker entry, assets, and `SUBLINK_KV` binding (zero placeholder id).
+- `wrangler.jsonc` — Worker entry, assets, and `SUBLINK_KV` binding (no `id`; wrangler auto-provisions it on deploy).
 
 ## Build, Test, and Development Commands
 
 ```bash
 npm install
 npm run dev                 # wrangler dev → http://localhost:8787 (local KV)
-npm run deploy              # wrangler deploy (set real KV id for manual deploy)
+npm run deploy              # wrangler deploy (auto-creates SUBLINK_KV on first deploy)
 npx wrangler deploy --dry-run
 npm run icons               # rebuild icons after editing NAMES in scripts/build-icons.mjs
 cd docs && npm install && npm run dev     # VitePress → http://localhost:5173
@@ -36,4 +36,4 @@ Follow Conventional Commits seen in history: `feat(ui): …`, `fix(docs): …`, 
 
 ## Security & Configuration Tips
 
-`SUBLINK_KV` stores short links only; `handleRequest` is the sole `env` consumer. Local `wrangler dev` ignores the KV id; manual production deploy needs an id from `npx wrangler kv namespace create SUBLINK_KV`.
+`SUBLINK_KV` stores short links only; `handleRequest` is the sole `env` consumer. The binding has no `id`; wrangler (>= 4.45) creates the namespace on first deploy, and local `wrangler dev` uses a simulated KV.

@@ -23,14 +23,10 @@
 ```bash
 npm install
 npx wrangler login
-npx wrangler kv namespace create SUBLINK_KV   # 记下输出的 id
+npm run deploy     # 首次部署会自动创建并绑定 SUBLINK_KV
 ```
 
-把 id 填进 [wrangler.jsonc](wrangler.jsonc) 的 `kv_namespaces`，替换占位值，然后：
-
-```bash
-npm run deploy
-```
+[wrangler.jsonc](wrangler.jsonc) 中的 KV 绑定没有写 `id`，由 wrangler（需 4.45 及以上）在部署时自动创建。如果你想复用已有的 namespace，把它的 `id` 填到绑定里即可。
 
 ## 本地运行
 

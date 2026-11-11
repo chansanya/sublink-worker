@@ -22,26 +22,16 @@ cd sublink-worker
 npm install
 npx wrangler login
 
-# 创建 KV 命名空间，记下输出的 id
-npx wrangler kv namespace create SUBLINK_KV
-```
-
-把输出的 id 填入 `wrangler.jsonc`，替换 `kv_namespaces` 里的占位值：
-
-```jsonc
-"kv_namespaces": [
-  { "binding": "SUBLINK_KV", "id": "<你的 namespace id>" }
-]
-```
-
-然后发布：
-
-```bash
+# 首次部署会自动创建并绑定 SUBLINK_KV
 npm run deploy
 ```
 
-::: warning 占位 id
-仓库里的 KV `id` 是全零占位值，供一键部署按钮替换使用。手动部署时如果不替换，会报 namespace 不存在。
+::: tip KV 自动创建
+`wrangler.jsonc` 里的 KV 绑定没有写 `id`，由 wrangler（需 4.45 及以上）在部署时自动创建。想复用已有的 namespace，把它的 `id` 填到绑定里即可：
+
+```jsonc
+{ "binding": "SUBLINK_KV", "id": "<你的 namespace id>" }
+```
 :::
 
 ## 本地运行

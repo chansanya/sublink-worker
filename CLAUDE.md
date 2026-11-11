@@ -17,7 +17,7 @@ cd docs && npm run build                  # 构建文档，同时检查站内死
 
 `docs/` 是独立的 npm 包（有自己的 `package.json` / `package-lock.json`），根目录构建不会安装 VitePress。`.github/workflows/docs-pages.yml` 在 `docs/**` 变更时构建并推送到 `gh-pages` 分支，由 GitHub Pages 托管在 `https://chansanya.github.io/sublink-worker/`（对应 `config.mts` 的 `base`）。它与 Cloudflare 部署完全独立，**不要把文档放进 `public/`**，否则会被 Worker 一并托管且根路径链接在 Pages 下全部失效。主页顶栏的「文档」链接指向该 Pages 地址。
 
-没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV（仅用于短链）通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定的 `id` 是全零占位值（README 的 Deploy to Cloudflare 按钮要求绑定带默认值，部署时会被新建的 namespace id 覆盖）；本地 `wrangler dev` 不读取它，手动 `wrangler deploy` 前必须换成真实 id，否则报 namespace 不存在。
+没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV（仅用于短链）通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定不写 `id`，由 wrangler（≥ 4.45）部署时自动创建并回填；本地 `wrangler dev` 用模拟 KV。不要提交真实 id。此前用全零占位 id，Workers Builds 直连部署会报 `KV namespace not found [10041]`，改为不写 id 后 README 的 Deploy to Cloudflare 按钮是否仍正常尚未验证。
 
 `src/` 是从上游 esbuild 打包产物反向拆出的，原始 `worker.js` 保存在 git 首个提交（`git show f78d35c:worker.js`）。js-yaml 锁定 4.1.0 以保持 Clash YAML 输出一致。
 
