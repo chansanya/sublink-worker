@@ -3,6 +3,8 @@ import { GenerateWebPath, decodeBase64, encodeBase64 } from "./utils.js";
 import { ConfigBuilder } from "./SingboxConfigBuilder.js";
 import { ClashConfigBuilder } from "./ClashConfigBuilder.js";
 
+const PROFILE_NAME = "Sublink";
+
 export default {
   fetch(request, env) {
     return handleRequest(request, env);
@@ -63,7 +65,10 @@ async function handleRequest(request, env) {
         url.pathname.startsWith("/singbox") ? JSON.stringify(config, null, 2) : config,
         {
           headers: {
-            "content-type": url.pathname.startsWith("/singbox") ? "application/json; charset=utf-8" : "text/yaml; charset=utf-8"
+            "content-type": url.pathname.startsWith("/singbox") ? "application/json; charset=utf-8" : "text/yaml; charset=utf-8",
+            // 客户端（FlClash / Clash Verge 等）据此给订阅命名
+            "content-disposition": `attachment; filename="${PROFILE_NAME}"`,
+            "profile-title": PROFILE_NAME
           }
         }
       );
