@@ -78,4 +78,4 @@ npm run dev
 
 ## 致谢
 
-基于 [7Sageer/sublink-worker](https://github.com/7Sageer/sublink-worker) 重构，沿用 [MIT 许可证](LICENSE)。
+本项目最初派生自 [7Sageer/sublink-worker](https://github.com/7Sageer/sublink-worker)，感谢原作者的工作。目前两个项目已各自独立演进，代码、功能与文档均不再同步，沿用 [MIT 许可证](LICENSE)。

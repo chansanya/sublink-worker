@@ -19,7 +19,7 @@ cd docs && npm run build                  # 构建文档，同时检查站内死
 
 没有测试和 lint。项目是 Cloudflare Workers ES module 格式，前端在 `public/` 由 Workers Static Assets 托管（静态文件优先命中，其余请求进 Worker），入口 `src/index.js`（`export default { fetch }`），KV（仅用于短链）通过 `env.SUBLINK_KV` 注入，`handleRequest(request, env)` 是唯一用到 `env` 的地方。`wrangler.jsonc` 中 KV 绑定不写 `id`，由 wrangler（≥ 4.45）部署时自动创建并回填；本地 `wrangler dev` 用模拟 KV。不要提交真实 id。此前用全零占位 id，Workers Builds 直连部署会报 `KV namespace not found [10041]`，改为不写 id 后 README 的 Deploy to Cloudflare 按钮是否仍正常尚未验证。
 
-`src/` 是从上游 esbuild 打包产物反向拆出的，原始 `worker.js` 保存在 git 首个提交（`git show f78d35c:worker.js`）。js-yaml 锁定 4.1.0 以保持 Clash YAML 输出一致。
+本项目派生自 7Sageer/sublink-worker（现已独立演进，不再同步）；`src/` 是从原项目 esbuild 打包产物反向拆出的，原始 `worker.js` 保存在 git 首个提交（`git show f78d35c:worker.js`）。js-yaml 锁定 4.1.0 以保持 Clash YAML 输出一致。
 
 ## 架构
 
@@ -29,7 +29,7 @@ cd docs && npm run build                  # 构建文档，同时检查站内死
 
 **Builder 模板方法**：`BaseConfigBuilder.build()` = `parseCustomItems` → `addCustomItems` → `addSelectors` → `formatConfig`。sing-box 的实现类名是 `ConfigBuilder`（不是 `SingboxConfigBuilder`）。两个 Builder 的 `addSelectors` 逻辑平行，硬编码了相同的策略组名：`🚀 节点选择`、`⚡ 自动选择`、`🐟 漏网之鱼`（兜底 final/MATCH），sing-box 额外有 `GLOBAL`；`🚀 节点选择` 首项为 `⚡ 自动选择`（即默认项）。改组名或分组逻辑必须两边同步。
 
-**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，规则可声明 `default_outbound`（`DIRECT`/`REJECT`），两个 Builder 通过 `groupMembers` 把它放到组首位，即默认选中（私有网络、国内服务、苹果、微软默认直连，广告拦截默认拦截）。`REJECT` 只出现在广告拦截组和自定义出站组里：`groupMembers` 对其他分类组去掉它，`🚀 节点选择`、`🐟 漏网之鱼`、sing-box 的 `GLOBAL` 经 `withoutReject` 去掉。`UNIFIED_RULES` 的默认顺序遵循“小分类在前、包含它的大分类在后”（如 YouTube 在谷歌前、云服务在微软前），调整时用前端的冲突提示检验。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`selectedRules` 一律经 `resolveSelectedRules` 解析：预设名展开为 `UNIFIED_RULES` 固定顺序，数组则**保持传入顺序**（前端拖动排序的结果），规则与策略组都按该顺序生成。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。Builder 固定以 `SING_BOX_CONFIG` / `CLASH_CONFIG` 为模板（内部 `DeepCopy`）；上游的自定义底板（`POST /config` + `configId`）已移除，旧链接带的 `configId` 参数会被忽略。
+**规则系统**（`src/config.js`）：`UNIFIED_RULES` 是唯一数据源，每条规则的 `name`（英文，如 `"AI Services"`）是 `selectedRules` 参数里用的标识，`outbound`（带 emoji 的中文）是生成的策略组名，规则可声明 `default_outbound`（`DIRECT`/`REJECT`），两个 Builder 通过 `groupMembers` 把它放到组首位，即默认选中（私有网络、国内服务、苹果、微软默认直连，广告拦截默认拦截）。`REJECT` 只出现在广告拦截组和自定义出站组里：`groupMembers` 对其他分类组去掉它，`🚀 节点选择`、`🐟 漏网之鱼`、sing-box 的 `GLOBAL` 经 `withoutReject` 去掉。`UNIFIED_RULES` 的默认顺序遵循“小分类在前、包含它的大分类在后”（如 YouTube 在谷歌前、云服务在微软前），调整时用前端的冲突提示检验。`PREDEFINED_RULE_SETS` 定义 `minimal` / `balanced` / `comprehensive` 预设。`selectedRules` 一律经 `resolveSelectedRules` 解析：预设名展开为 `UNIFIED_RULES` 固定顺序，数组则**保持传入顺序**（前端拖动排序的结果），规则与策略组都按该顺序生成。`generateRules` 生成规则列表，`pin=true` 时自定义规则置顶，自定义规则的各字段经 `splitList` 切分（去空格、去空项）。自定义规则的 `name` 即出站：两个 Builder 会为其新建同名策略组，但 `name` 属于 `BUILTIN_OUTBOUNDS`（`DIRECT`/`REJECT`）时不建组，直接指向内置出站。sing-box 侧 `generateRuleSets` 把 site/ip 规则映射为远程 `.srs`（来源 `lyc8503/sing-box-rules`，ip 规则 tag 带 `-ip` 后缀）；Clash 侧直接输出 `GEOSITE,` / `GEOIP,` 规则。Builder 固定以 `SING_BOX_CONFIG` / `CLASH_CONFIG` 为模板（内部 `DeepCopy`）；原项目的自定义底板（`POST /config` + `configId`）已移除，旧链接带的 `configId` 参数会被忽略。
 
 **路由**：
 - `GET /`：静态资源 `public/index.html`，不经过 Worker

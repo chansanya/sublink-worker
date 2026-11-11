@@ -48,7 +48,7 @@
 |---|---|---|
 | `config` | 是 | 同上 |
 
-拉取其中的订阅并与节点链接合并，返回 Base64 编码的节点列表（每行一个节点）。响应的 Content-Type 为 `application/json; charset=utf-8`，这是沿用上游的行为，内容本身是纯文本 Base64。
+拉取其中的订阅并与节点链接合并，返回 Base64 编码的节点列表（每行一个节点）。响应的 Content-Type 为 `application/json; charset=utf-8`，这是沿用原项目的行为，内容本身是纯文本 Base64。
 
 ## 短链
 

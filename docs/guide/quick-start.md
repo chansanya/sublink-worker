@@ -1,6 +1,6 @@
 # 快速开始
 
-Sublink Worker 运行在 Cloudflare Workers 上，只依赖一个 KV 命名空间（用于存储短链）。下面三种方式任选其一。
+Sublink Worker 运行在 Cloudflare Workers 上，只依赖一个 KV 命名空间（用于存储短链）。下面几种方式任选其一。
 
 ## 一键部署
 
@@ -12,6 +12,19 @@ Sublink Worker 运行在 Cloudflare Workers 上，只依赖一个 KV 命名空�
 
 ::: tip 国内访问
 `*.workers.dev` 域名在部分网络下无法访问。可以在 Cloudflare 控制台为 Worker 绑定自己的域名。
+:::
+
+## 在 Cloudflare 控制台连接仓库部署
+
+已经有仓库（自己的 fork 或复制的副本）时，可以直接让 Cloudflare 从 GitHub / GitLab 拉代码构建：
+
+1. 打开 Cloudflare 控制台，进入 **Workers & Pages**，选择创建应用并导入 Git 仓库。
+2. 选择仓库和分支，构建命令留空，部署命令使用默认的 `npx wrangler deploy`（等同于 `npm run deploy`）。
+3. 保存并部署。`wrangler.jsonc` 里的 KV 绑定没有写 `id`，会在首次部署时自动创建 `SUBLINK_KV` 并完成绑定。
+4. 之后向该分支推送代码，会自动重新构建并部署。
+
+::: tip Worker 名称
+控制台里的 Worker 名称最好与 `wrangler.jsonc` 的 `name`（`sublink-worker`）保持一致。名称不一致时，自动创建的 KV 命名空间会按控制台里的 Worker 名称命名，改名后可能多出一个新的命名空间，原有短链不会迁移。
 :::
 
 ## 使用 Wrangler 手动部署

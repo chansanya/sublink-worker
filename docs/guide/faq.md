@@ -9,11 +9,10 @@
 | `Missing config parameter` | 链接里没有节点，或节点内容为空 |
 | `Internal Server Error` | 生成过程中出错，常见于节点链接格式异常 |
 | `Short URL not found` | 旧版 `/s/` 短链不存在 |
-| 跳转到 `…/clashnull`、`…/singboxnull` 一类地址 | `/c/` `/b/` `/x/` 短链的路径不存在。这是上游遗留的行为，此时不会返回 404 |
+| 跳转到 `…/clashnull`、`…/singboxnull` 一类地址 | `/c/` `/b/` `/x/` 短链的路径不存在。这是从原项目沿用的行为，此时不会返回 404 |
 
 另外检查：
 
-- 手动部署时，`wrangler.jsonc` 中的 KV `id` 是否已替换为真实值；
 - 机场是否限制了 Cloudflare 的出口 IP。如果 Worker 拉取订阅超时，可以直接粘贴节点链接，而不是订阅地址。
 
 ## `*.workers.dev` 打不开
@@ -38,9 +37,9 @@ Clash 系客户端需要开启 `profile.store-selected`（在客户端设置中�
 
 可用的分类名就是 [v2fly/domain-list-community](https://github.com/v2fly/domain-list-community/tree/master/data) 中 `data/` 目录下的文件名。在高级规则里填写后，页面会在线检查名称是否存在；不存在的名称会标红，因为 sing-box 下载对应规则集失败会导致整份配置无法加载。
 
-## 为什么去掉了上游的"底板配置"
+## 为什么去掉了原项目的"底板配置"
 
-上游允许保存一份自定义的 Clash / sing-box 模板（`POST /config` + `configId`），实际使用中问题较多：
+原项目（[7Sageer/sublink-worker](https://github.com/7Sageer/sublink-worker)，本项目由它派生，现已各自独立演进）允许保存一份自定义的 Clash / sing-box 模板（`POST /config` + `configId`），实际使用中问题较多：
 
 - `configId` 同时拼进所有订阅链接，但服务端不检查类型，保存 Clash 模板后 sing-box 链接会报 500，反之亦然；
 - 模板缺少必需字段时同样报 500；
