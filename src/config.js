@@ -20,7 +20,8 @@ export const UNIFIED_RULES = [
     name: "Bilibili",
     outbound: "📺 哔哩哔哩",
     site_rules: ["bilibili"],
-    ip_rules: []
+    ip_rules: [],
+    default_outbound: "DIRECT"
   },
   {
     name: "Youtube",

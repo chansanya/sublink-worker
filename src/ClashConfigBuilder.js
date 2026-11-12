@@ -101,10 +101,17 @@ export class ClashConfigBuilder extends BaseConfigBuilder {
           cipher: proxy.security,
           tls: proxy.tls?.enabled || false,
           servername: proxy.tls?.server_name || "",
-          network: proxy.transport?.type || "tcp",
+          network: proxy.transport?.type === "http" ? "h2" : proxy.transport?.type || "tcp",
           "ws-opts": proxy.transport?.type === "ws" ? {
             path: proxy.transport.path,
             headers: proxy.transport.headers
+          } : void 0,
+          "grpc-opts": proxy.transport?.type === "grpc" ? {
+            "grpc-service-name": proxy.transport.service_name
+          } : void 0,
+          "h2-opts": proxy.transport?.type === "http" ? {
+            host: proxy.transport.host,
+            path: proxy.transport.path
           } : void 0
         };
       case "vless":

@@ -42,7 +42,9 @@ class ShadowsocksParser {
         let [server, server_port] = this.parseServer(serverInfo);
         return this.createConfig(tag, server, server_port, method, password);
       }
-      let decodedParts = decodeBase64(base64).split(":");
+      // SIP002 允许 userinfo 为明文 method:password（ss 2022 常见），base64 字母表不含冒号
+      const userinfo = decodeURIComponent(base64);
+      let decodedParts = (userinfo.includes(":") ? userinfo : decodeBase64(userinfo)).split(":");
       let method = decodedParts[0];
       let password = decodedParts.slice(1).join(":");
       let [server, server_port] = this.parseServer(serverPart);
@@ -79,21 +81,22 @@ class VmessParser {
   parse(url) {
     let base64 = url.replace("vmess://", "");
     let vmessConfig = JSON.parse(decodeBase64(base64));
+    const host = vmessConfig.host || vmessConfig.sni;
     let tls = { "enabled": false };
     let transport = {};
     if (vmessConfig.net === "ws") {
-      transport = {
-        "type": "ws",
-        "path": vmessConfig.path,
-        "headers": { "Host": vmessConfig.host ? vmessConfig.host : vmessConfig.sni }
+      transport = { "type": "ws", "path": vmessConfig.path, "headers": { "Host": host } };
+    } else if (vmessConfig.net === "grpc") {
+      transport = { "type": "grpc", "service_name": vmessConfig.path };
+    } else if (vmessConfig.net === "h2") {
+      transport = { "type": "http", "host": host ? [host] : void 0, "path": vmessConfig.path };
+    }
+    if (vmessConfig.tls && vmessConfig.tls !== "none") {
+      tls = {
+        "enabled": true,
+        "server_name": vmessConfig.sni || vmessConfig.host,
+        "insecure": false
       };
-      if (vmessConfig.tls !== "") {
-        tls = {
-          "enabled": true,
-          "server_name": vmessConfig.sni,
-          "insecure": false
-        };
-      }
     }
     return {
       "tag": vmessConfig.ps,

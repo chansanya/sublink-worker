@@ -46,7 +46,11 @@ function base64FromBinary(binaryString) {
 function base64ToBinary(base64String) {
   const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   let binaryString = "";
-  base64String = base64String.replace(/=+$/, "");
+  // 兼容 base64url 与换行折行；含非法字符时抛错，调用方据此回退为明文
+  base64String = base64String.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/").replace(/=+$/, "");
+  if (/[^A-Za-z0-9+/]/.test(base64String)) {
+    throw new Error("Invalid base64 input");
+  }
   for (let i = 0; i < base64String.length; i += 4) {
     const bytes = [
       base64Chars.indexOf(base64String[i]),
